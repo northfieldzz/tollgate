@@ -25,9 +25,6 @@ jobs:
           go-version-file: 'go.mod'
           cache: true
 
-      - name: Download Dependencies
-        run: |
-          go mod download
 
       - name: Run Unit & Integration Tests
         env:
