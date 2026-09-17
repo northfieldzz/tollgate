@@ -1,0 +1,44 @@
+name: CI / Automated Testing
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Run Tests & Quality Checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+
+      - name: Verify Dependencies
+        run: |
+          go mod verify
+
+      - name: Run Go Vet (Static Analysis)
+        run: |
+          go vet ./...
+
+      - name: Run Unit & Integration Tests with Coverage
+        env:
+          AWS_EC2_METADATA_DISABLED: "true"
+          AWS_ACCESS_KEY_ID: "dummy"
+          AWS_SECRET_ACCESS_KEY: "dummy"
+        run: |
+          go test -v -race -coverprofile=coverage.out ./...
+
+      - name: Display Coverage Summary
+        run: |
+          go tool cover -func=coverage.out | tail -n 1
