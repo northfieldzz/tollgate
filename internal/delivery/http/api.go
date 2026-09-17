@@ -11,17 +11,17 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-func NewRouter(keyUsecase *usecase.KeyUsecase, verifyUsecase *usecase.VerifyUsecase, repo repository.KeyRepository) http.Handler {
+func NewRouter(keyUsecase *usecase.KeyUsecase, verifyUsecase *usecase.VerifyUsecase, repo repository.KeyRepository, proxyHandler http.Handler) http.Handler {
 	mux := http.NewServeMux()
 
 	// 1. Prometheus メトリクスエンドポイント (/metrics)
 	mux.Handle("/metrics", promhttp.Handler())
 
 	// 2. Huma v2 OpenAPI 3.1 設定 (UI は提供せず openapi.json のみ提供)
-	config := huma.DefaultConfig("IT Context Platform — API Manager", "1.0.0")
+	config := huma.DefaultConfig("Tollgate", "1.0.0")
 	config.DocsPath = "" // ドキュメント UI を無効化
 	config.OpenAPIPath = "/openapi"
-	config.Info.Description = "マルチテナント対応 API キー管理 (発行・失効・ローテーション) およびリクエストレートリミット / クォータ検証 Web API"
+	config.Info.Description = "マルチテナント対応 API キー管理およびリクエストレートリミット / クォータ検証 Web API & リバースプロキシ"
 
 	api := humago.New(mux, config)
 
@@ -37,6 +37,12 @@ func NewRouter(keyUsecase *usecase.KeyUsecase, verifyUsecase *usecase.VerifyUsec
 	RegisterHealthHandler(api, repo)
 	RegisterKeyHandlers(api, keyUsecase)
 	RegisterVerifyHandler(api, verifyUsecase)
+
+	// 4. リバースプロキシ (プロキシハンドラーが存在する場合)
+	if proxyHandler != nil {
+		// Huma / 管理系エンドポイント以外のすべてのリクエストをプロキシに流す
+		mux.Handle("/", proxyHandler)
+	}
 
 	return mux
 }

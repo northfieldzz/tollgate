@@ -67,6 +67,9 @@ cp .env.example .env
 | `DYNAMODB_ENDPOINT` | `http://dynamodb:8000` | DynamoDB の接続エンドポイント |
 | `AWS_REGION` | `ap-northeast-1` | AWS リージョン |
 | `TABLE_NAME` | `ITCP_APIKeys` | API キー格納先テーブル名 |
+| `PROXY_ROUTES` | *(任意)* | 動的ルート定義 (JSON 配列文字列)。後述の仕様を参照 |
+| `ROUTES_CONFIG_FILE` | *(任意)* | 動的ルート定義ファイルのパス (例: `./routes.json`) |
+| `FORWARD_TARGET_URL` | *(任意)* | ルート未マッチ時のデフォルトフォールバック転送先 (例: `http://webapi:8000`) |
 
 ---
 
@@ -80,7 +83,7 @@ DynamoDB Local と初期テーブル作成コンテナ、DynamoDB Admin、Tollga
 nerdctl compose -f compose.yaml -f dynamodb.compose.yaml up -d --build
 ```
 
-- **Tollgate API**: `http://localhost:8002`
+- **Tollgate API / Gateway**: `http://localhost:8002`
 - **DynamoDB Admin (Web UI)**: `http://localhost:8003`
 
 ### 停止
@@ -88,6 +91,77 @@ nerdctl compose -f compose.yaml -f dynamodb.compose.yaml up -d --build
 ```bash
 nerdctl compose -f compose.yaml -f dynamodb.compose.yaml down
 ```
+
+---
+
+## 動作モード & ルーティング仕様
+
+### 1. 動的マルチターゲット・リバースプロキシモード
+
+リクエストパスのプレフィックスに応じて、複数のバックエンドサービスへ自動ルーティングする。
+
+#### ルーティングの定義方法
+
+JSON 形式で各サービスのルーティングを定義する。環境変数 `PROXY_ROUTES` または設定ファイル `ROUTES_CONFIG_FILE` で指定可能。
+
+```json
+[
+  {
+    "prefix": "/llm",
+    "target": "http://llm-gateway:8000",
+    "scope": "llm:*",
+    "strip_prefix": true
+  },
+  {
+    "prefix": "/mcp",
+    "target": "http://mcp-gateway:8000",
+    "scope": "mcp:*",
+    "strip_prefix": true
+  },
+  {
+    "prefix": "/ai",
+    "target": "http://ai-engine:8000",
+    "scope": "ai:*",
+    "strip_prefix": true
+  }
+]
+```
+
+- **環境変数で指定する場合 (`PROXY_ROUTES`)**:
+  1 行の JSON 文字列として指定。
+- **設定ファイルで指定する場合 (`ROUTES_CONFIG_FILE`)**:
+  外部マウントした `routes.json` などのファイルパスを指定。
+
+
+#### プレフィックス除去（StripPrefix）
+
+`strip_prefix: true` の場合、下流サービスにはプレフィックスを除去したパスが渡される。
+- クライアントリクエスト: `POST /mcp/tools/list?filter=active`
+- 下流バックエンド転送: `POST /tools/list?filter=active`
+
+#### 認可（スコープ Fast-Fail）
+
+ルートに `scope`（例: `mcp:*`）が設定されている場合、API キーの許可スコープと照合される。
+- スコープを満たさないキーでのリクエストは **`403 Forbidden` (`reason: scope_mismatch`)** を即時返却し、バックエンドには一切リクエストを流さない。
+
+#### コンテキスト情報の自動付与
+
+検証成功時、バックエンドに以下のヘッダーを自動付与して転送:
+- `X-Tenant-ID`: テナント ID
+- `X-Key-ID`: キー ID
+- `X-Key-Prefix`: キープレフィックス
+- `X-Service-ID`: サービス ID
+
+#### ストリーミング対応
+
+- **SSE (Server-Sent Events)**: `FlushInterval = -1` によりバッファリングなしで即座にリアルタイム中継。
+- **WebSocket**: `Connection: Upgrade` を透過。
+
+---
+
+### 2. スタンドアロン API モード
+
+プロキシ環境変数が一切設定されていない場合、キー管理 API および明示的検証 API (`/verify`) のみを提供する。
 
 ---
 
@@ -105,6 +179,10 @@ nerdctl compose -f compose.yaml -f dynamodb.compose.yaml down
 | `DELETE` | `/keys/{key_id}` | API キーの失効 |
 | `POST` | `/keys/{key_id}/rotate` | API キーのローテーション |
 | `POST` | `/verify` | API キー検証および流量制御判定 |
+| `ANY` | `/llm/*` | **(プロキシ)** `llm_gateway` へ透過転送 (StripPrefix: `/llm`) |
+| `ANY` | `/mcp/*` | **(プロキシ)** `mcp_gateway` へ透過転送 (StripPrefix: `/mcp`) |
+| `ANY` | `/ai/*` | **(プロキシ)** `ai_engine` へ透過転送 (StripPrefix: `/ai`) |
+| `ANY` | `/*` | **(動的プロキシ)** `PROXY_ROUTES` 定義に基づく転送 |
 
 ---
 
