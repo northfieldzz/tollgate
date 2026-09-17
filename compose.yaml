@@ -1,0 +1,22 @@
+services:
+  api_manager:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8002:8000"
+    environment:
+      PORT: "8000"
+      DYNAMODB_ENDPOINT: ${DYNAMODB_ENDPOINT:-http://dynamodb:8000}
+      AWS_REGION: ${AWS_REGION:-ap-northeast-1}
+      TABLE_NAME: ${TABLE_NAME:-ITCP_APIKeys}
+    depends_on:
+      dynamodb:
+        condition: service_started
+      dynamodb-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: [ "CMD-SHELL", "wget -q --spider http://localhost:8000/health/live || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
