@@ -179,9 +179,6 @@ JSON 形式で各サービスのルーティングを定義する。環境変数
 | `DELETE` | `/keys/{key_id}` | API キーの失効 |
 | `POST` | `/keys/{key_id}/rotate` | API キーのローテーション |
 | `POST` | `/verify` | API キー検証および流量制御判定 |
-| `ANY` | `/llm/*` | **(プロキシ)** `llm_gateway` へ透過転送 (StripPrefix: `/llm`) |
-| `ANY` | `/mcp/*` | **(プロキシ)** `mcp_gateway` へ透過転送 (StripPrefix: `/mcp`) |
-| `ANY` | `/ai/*` | **(プロキシ)** `ai_engine` へ透過転送 (StripPrefix: `/ai`) |
 | `ANY` | `/*` | **(動的プロキシ)** `PROXY_ROUTES` 定義に基づく転送 |
 
 ---
