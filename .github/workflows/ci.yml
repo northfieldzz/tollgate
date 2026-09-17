@@ -23,8 +23,9 @@ jobs:
           go-version-file: 'go.mod'
           cache: true
 
-      - name: Verify Dependencies
+      - name: Download & Verify Dependencies
         run: |
+          go mod download
           go mod verify
 
       - name: Run Go Vet (Static Analysis)

@@ -193,3 +193,10 @@ JSON 形式で各サービスのルーティングを定義する。環境変数
 ```bash
 nerdctl build -t tollgate:test .
 ```
+
+---
+
+## ライセンス
+
+[MIT License](LICENSE)
+

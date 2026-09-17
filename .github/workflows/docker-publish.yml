@@ -25,6 +25,10 @@ jobs:
           go-version-file: 'go.mod'
           cache: true
 
+      - name: Download Dependencies
+        run: |
+          go mod download
+
       - name: Run Unit & Integration Tests
         env:
           AWS_EC2_METADATA_DISABLED: "true"
