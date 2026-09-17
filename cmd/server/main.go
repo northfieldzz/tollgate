@@ -13,10 +13,10 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
-	deliveryHttp "github.com/northfieldzz/null_and_void_work_agent/apps/api_manager/internal/delivery/http"
-	infraDynamo "github.com/northfieldzz/null_and_void_work_agent/apps/api_manager/internal/infrastructure/dynamodb"
-	"github.com/northfieldzz/null_and_void_work_agent/apps/api_manager/internal/infrastructure/ratelimit"
-	"github.com/northfieldzz/null_and_void_work_agent/apps/api_manager/internal/usecase"
+	deliveryHttp "github.com/northfieldzz/tollgate/internal/delivery/http"
+	infraDynamo "github.com/northfieldzz/tollgate/internal/infrastructure/dynamodb"
+	"github.com/northfieldzz/tollgate/internal/infrastructure/ratelimit"
+	"github.com/northfieldzz/tollgate/internal/usecase"
 )
 
 func main() {

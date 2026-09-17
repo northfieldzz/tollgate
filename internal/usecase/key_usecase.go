@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/northfieldzz/null_and_void_work_agent/apps/api_manager/internal/domain/entity"
-	"github.com/northfieldzz/null_and_void_work_agent/apps/api_manager/internal/domain/repository"
+	"github.com/northfieldzz/tollgate/internal/domain/entity"
+	"github.com/northfieldzz/tollgate/internal/domain/repository"
 )
 
 type KeyUsecase struct {

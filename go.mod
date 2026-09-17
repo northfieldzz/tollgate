@@ -1,4 +1,4 @@
-module github.com/northfieldzz/null_and_void_work_agent/apps/api_manager
+module github.com/northfieldzz/tollgate
 
 go 1.25.0
 

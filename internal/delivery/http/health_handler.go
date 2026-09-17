@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/danielgtaylor/huma/v2"
-	"github.com/northfieldzz/null_and_void_work_agent/apps/api_manager/internal/domain/repository"
+	"github.com/northfieldzz/tollgate/internal/domain/repository"
 )
 
 type HealthOutput struct {

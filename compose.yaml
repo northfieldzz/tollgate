@@ -1,5 +1,6 @@
 services:
-  api_manager:
+  tollgate:
+    container_name: tollgate
     build:
       context: .
       dockerfile: Dockerfile

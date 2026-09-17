@@ -6,8 +6,8 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humago"
-	"github.com/northfieldzz/null_and_void_work_agent/apps/api_manager/internal/domain/repository"
-	"github.com/northfieldzz/null_and_void_work_agent/apps/api_manager/internal/usecase"
+	"github.com/northfieldzz/tollgate/internal/domain/repository"
+	"github.com/northfieldzz/tollgate/internal/usecase"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 

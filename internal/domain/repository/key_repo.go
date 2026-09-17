@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/northfieldzz/null_and_void_work_agent/apps/api_manager/internal/domain/entity"
+	"github.com/northfieldzz/tollgate/internal/domain/entity"
 )
 
 // KeyRepository は API キー永続化層のインターフェース

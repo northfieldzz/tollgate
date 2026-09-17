@@ -5,10 +5,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/northfieldzz/null_and_void_work_agent/apps/api_manager/internal/domain/entity"
-	"github.com/northfieldzz/null_and_void_work_agent/apps/api_manager/internal/domain/repository"
-	"github.com/northfieldzz/null_and_void_work_agent/apps/api_manager/internal/infrastructure/metrics"
-	"github.com/northfieldzz/null_and_void_work_agent/apps/api_manager/internal/infrastructure/ratelimit"
+	"github.com/northfieldzz/tollgate/internal/domain/entity"
+	"github.com/northfieldzz/tollgate/internal/domain/repository"
+	"github.com/northfieldzz/tollgate/internal/infrastructure/metrics"
+	"github.com/northfieldzz/tollgate/internal/infrastructure/ratelimit"
 )
 
 type VerifyUsecase struct {
