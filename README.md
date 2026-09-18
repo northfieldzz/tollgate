@@ -67,6 +67,8 @@ cp .env.example .env
 | `DYNAMODB_ENDPOINT` | `http://dynamodb:8000` | DynamoDB の接続エンドポイント |
 | `AWS_REGION` | `ap-northeast-1` | AWS リージョン |
 | `TABLE_NAME` | `ITCP_APIKeys` | API キー格納先テーブル名 |
+| `OPENAPI_PATH` | *(空・無効)* | OpenAPI 3.1 スキーマのパス (例: `/openapi.json`)。未指定時は無効化 |
+| `DOCS_PATH` | *(空・無効)* | Scalar ドキュメント UI のパス (例: `/docs`)。未指定時は UI 無効化 |
 | `PROXY_ROUTES` | *(任意)* | 動的ルート定義 (JSON 配列文字列)。後述の仕様を参照 |
 | `ROUTES_CONFIG_FILE` | *(任意)* | 動的ルート定義ファイルのパス (例: `./routes.json`) |
 | `FORWARD_TARGET_URL` | *(任意)* | ルート未マッチ時のデフォルトフォールバック転送先 (例: `http://webapi:8000`) |
@@ -172,8 +174,8 @@ JSON 形式で各サービスのルーティングを定義する。環境変数
 | `GET` | `/health/live` | Liveness ヘルスチェック |
 | `GET` | `/health/ready` | Readiness ヘルスチェック (DynamoDB 接続確認) |
 | `GET` | `/metrics` | Prometheus メトリクス |
-| `GET` | `/openapi` | OpenAPI 3.1 スキーマ (JSON) |
-| `GET` | `/openapi.json` | OpenAPI 3.1 スキーマ (JSON) |
+| `GET` | `OPENAPI_PATH` | OpenAPI 3.1 スキーマ (JSON, 例: `/openapi.json`, 環境変数で指定時のみ有効) |
+| `GET` | `DOCS_PATH` | Scalar ドキュメント UI (例: `/docs`, 環境変数で指定時のみ有効) |
 | `POST` | `/keys` | 新規 API キー発行 |
 | `GET` | `/keys` | テナントの API キー一覧取得 |
 | `DELETE` | `/keys/{key_id}` | API キーの失効 |

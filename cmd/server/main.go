@@ -3,10 +3,12 @@ package main
 import (
 	"cmp"
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -93,7 +95,25 @@ func main() {
 		} else {
 			log.Println("[tollgate] Running in standalone API mode (No proxy routes configured)")
 		}
-		log.Printf("[tollgate] Server listening on :%s (OpenAPI at http://localhost:%s/openapi.json)", port, port)
+		var infoMsgs []string
+		if openapiPath := os.Getenv("OPENAPI_PATH"); openapiPath != "" {
+			if !strings.HasPrefix(openapiPath, "/") {
+				openapiPath = "/" + openapiPath
+			}
+			infoMsgs = append(infoMsgs, fmt.Sprintf("OpenAPI at http://localhost:%s%s", port, openapiPath))
+		}
+		if docsPath := os.Getenv("DOCS_PATH"); docsPath != "" {
+			if !strings.HasPrefix(docsPath, "/") {
+				docsPath = "/" + docsPath
+			}
+			infoMsgs = append(infoMsgs, fmt.Sprintf("Docs at http://localhost:%s%s", port, docsPath))
+		}
+
+		infoStr := ""
+		if len(infoMsgs) > 0 {
+			infoStr = " (" + strings.Join(infoMsgs, ", ") + ")"
+		}
+		log.Printf("[tollgate] Server listening on :%s%s", port, infoStr)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("listen error: %v", err)
 		}

@@ -14,6 +14,8 @@ services:
       PROXY_ROUTES: ${PROXY_ROUTES:-}
       ROUTES_CONFIG_FILE: ${ROUTES_CONFIG_FILE:-}
       FORWARD_TARGET_URL: ${FORWARD_TARGET_URL:-}
+      OPENAPI_PATH: ${OPENAPI_PATH:-}
+      DOCS_PATH: ${DOCS_PATH:-}
     depends_on:
       dynamodb:
         condition: service_started
