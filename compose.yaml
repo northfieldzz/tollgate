@@ -10,12 +10,13 @@ services:
       PORT: "8000"
       DYNAMODB_ENDPOINT: ${DYNAMODB_ENDPOINT:-http://dynamodb:8000}
       AWS_REGION: ${AWS_REGION:-ap-northeast-1}
-      TABLE_NAME: ${TABLE_NAME:-ITCP_APIKeys}
+      TABLE_NAME: ${TABLE_NAME:-TollgateAPIKeys}
       PROXY_ROUTES: ${PROXY_ROUTES:-}
       ROUTES_CONFIG_FILE: ${ROUTES_CONFIG_FILE:-}
       FORWARD_TARGET_URL: ${FORWARD_TARGET_URL:-}
       OPENAPI_PATH: ${OPENAPI_PATH:-}
       DOCS_PATH: ${DOCS_PATH:-}
+      KEY_CACHE_TTL: ${KEY_CACHE_TTL:-10}
     depends_on:
       dynamodb:
         condition: service_started

@@ -97,7 +97,7 @@ func TestMultiTargetProxy_RoutingAndStripPrefix(t *testing.T) {
 	proxy, repo := setupTestMultiProxy(t, routes, nil)
 
 	// 万能キー (全スコープ許可)
-	rawKey := "itcp-live-allpowerfull1234567890"
+	rawKey := "tlge-live-allpowerfull1234567890"
 	repo.keys[usecase.HashKey(rawKey)] = &entity.APIKey{
 		KeyID:        "key-admin",
 		TenantID:     "tenant-all",
@@ -157,7 +157,7 @@ func TestMultiTargetProxy_ScopeEnforcement(t *testing.T) {
 	proxy, repo := setupTestMultiProxy(t, routes, nil)
 
 	// llm:* のみを持つキー (mcp:* を持たない)
-	llmOnlyKey := "itcp-live-llmonly1234567890abcdef"
+	llmOnlyKey := "tlge-live-llmonly1234567890abcdef"
 	repo.keys[usecase.HashKey(llmOnlyKey)] = &entity.APIKey{
 		KeyID:        "key-llm",
 		TenantID:     "tenant-llm",

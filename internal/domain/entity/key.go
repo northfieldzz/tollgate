@@ -18,11 +18,11 @@ type RotationMeta struct {
 	GracePeriodExpiresAt time.Time `dynamodbav:"grace_period_expires_at" json:"grace_period_expires_at,omitempty"`
 }
 
-// APIKey は DynamoDB (ITCP_APIKeys) に永続化される API キー実体
+// APIKey は DynamoDB (TollgateAPIKeys) に永続化される API キー実体
 type APIKey struct {
 	PK                 string        `dynamodbav:"pk" json:"-"`                                 // KEY#<sha256_hash>
 	KeyID              string        `dynamodbav:"key_id" json:"key_id"`                         // UUID
-	KeyPrefix          string        `dynamodbav:"key_prefix" json:"key_prefix"`                 // itcp-live-xxxx
+	KeyPrefix          string        `dynamodbav:"key_prefix" json:"key_prefix"`                 // tlge-live-xxxx
 	Name               string        `dynamodbav:"name" json:"name"`                             // 表示名
 	TenantID           string        `dynamodbav:"tenant_id" json:"tenant_id"`                   // GSI Partition Key
 	ServiceID          string        `dynamodbav:"service_id" json:"service_id,omitempty"`       // サービス名
@@ -54,7 +54,7 @@ type CreateKeyInput struct {
 // CreateKeyOutput は API キー新規発行時の出力 (平文 RawKey を1度だけ返却)
 type CreateKeyOutput struct {
 	APIKey
-	RawKey string `json:"raw_key" doc:"生成された平文 API キー (このレスポンス時のみ1度だけ開示)" example:"itcp-live-8f9c2d1e0a4b3c5d6e7f8a9b0c1d2e3f"`
+	RawKey string `json:"raw_key" doc:"生成された平文 API キー (このレスポンス時のみ1度だけ開示)" example:"tlge-live-8f9c2d1e0a4b3c5d6e7f8a9b0c1d2e3f"`
 }
 
 // UpdateKeyInput は API キー設定変更の入力パラメータ
@@ -80,7 +80,7 @@ type RotateKeyOutput struct {
 
 // VerifyKeyInput は他サービス (ai_engine / mcp_gateway / llm_gateway) からのキー検証リクエスト
 type VerifyKeyInput struct {
-	RawKey        string `json:"raw_key" doc:"検証対象の平文 API キー" required:"true" example:"itcp-live-8f9c2d1e0a4b3c5d6e7f8a9b0c1d2e3f"`
+	RawKey        string `json:"raw_key" doc:"検証対象の平文 API キー" required:"true" example:"tlge-live-8f9c2d1e0a4b3c5d6e7f8a9b0c1d2e3f"`
 	RequiredScope string `json:"required_scope,omitempty" doc:"実行に必要なスコープ (例: ai:workflows:execute)" example:"mcp:tools:execute"`
 }
 

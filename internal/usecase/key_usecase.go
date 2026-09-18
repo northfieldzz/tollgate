@@ -21,13 +21,26 @@ func NewKeyUsecase(repo repository.KeyRepository) *KeyUsecase {
 	return &KeyUsecase{repo: repo}
 }
 
-// GenerateRawKey は安全な暗号乱数を用いて "itcp-live-<32文字hex>" 形式の平文キーを生成する
+const (
+	RawKeyPrefix    = "tlge-live-"
+	KeyPrefixLength = len(RawKeyPrefix) + 4 // 例: "tlge-live-8f9c" (14文字)
+)
+
+// ExtractKeyPrefix は安全にプレフィックス部分を抽出する
+func ExtractKeyPrefix(rawKey string) string {
+	if len(rawKey) < KeyPrefixLength {
+		return rawKey
+	}
+	return rawKey[:KeyPrefixLength]
+}
+
+// GenerateRawKey は安全な暗号乱数を用いて "tlge-live-<32文字hex>" 形式の平文キーを生成する
 func GenerateRawKey() (string, error) {
 	bytes := make([]byte, 16)
 	if _, err := rand.Read(bytes); err != nil {
 		return "", fmt.Errorf("crypto rand read error: %w", err)
 	}
-	return fmt.Sprintf("itcp-live-%s", hex.EncodeToString(bytes)), nil
+	return fmt.Sprintf("%s%s", RawKeyPrefix, hex.EncodeToString(bytes)), nil
 }
 
 // HashKey は平文キーの SHA-256 ダイジェスト文字列を生成する
@@ -45,7 +58,7 @@ func (u *KeyUsecase) CreateKey(ctx context.Context, input entity.CreateKeyInput)
 
 	keyHash := HashKey(rawKey)
 	keyID := uuid.New().String()
-	keyPrefix := rawKey[:14] // 例: "itcp-live-8f9c"
+	keyPrefix := ExtractKeyPrefix(rawKey)
 
 	rpm := input.RateLimitRPM
 	if rpm <= 0 {
@@ -164,7 +177,7 @@ func (u *KeyUsecase) RotateKey(ctx context.Context, keyID string, input entity.R
 		return nil, err
 	}
 	newKeyHash := HashKey(newRawKey)
-	newPrefix := newRawKey[:14]
+	newPrefix := ExtractKeyPrefix(newRawKey)
 
 	hours := input.GracePeriodHours
 	if hours <= 0 {

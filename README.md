@@ -66,9 +66,10 @@ cp .env.example .env
 | `PORT` | `8000` | Tollgate サーバーのポート番号 |
 | `DYNAMODB_ENDPOINT` | `http://dynamodb:8000` | DynamoDB の接続エンドポイント |
 | `AWS_REGION` | `ap-northeast-1` | AWS リージョン |
-| `TABLE_NAME` | `ITCP_APIKeys` | API キー格納先テーブル名 |
+| `TABLE_NAME` | `TollgateAPIKeys` | API キー格納先テーブル名 |
 | `OPENAPI_PATH` | *(空・無効)* | OpenAPI 3.1 スキーマのパス (例: `/openapi.json`)。未指定時は無効化 |
 | `DOCS_PATH` | *(空・無効)* | Scalar ドキュメント UI のパス (例: `/docs`)。未指定時は UI 無効化 |
+| `KEY_CACHE_TTL` | `10` | API キー検証のインメモリキャッシュ TTL (秒)。`0` でキャッシュ無効化 |
 | `PROXY_ROUTES` | *(任意)* | 動的ルート定義 (JSON 配列文字列)。後述の仕様を参照 |
 | `ROUTES_CONFIG_FILE` | *(任意)* | 動的ルート定義ファイルのパス (例: `./routes.json`) |
 | `FORWARD_TARGET_URL` | *(任意)* | ルート未マッチ時のデフォルトフォールバック転送先 (例: `http://webapi:8000`) |

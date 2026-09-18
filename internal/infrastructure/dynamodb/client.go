@@ -22,7 +22,7 @@ type DynamoDBRepository struct {
 func NewDynamoDBRepository(client *dynamodb.Client, tableName string) repository.KeyRepository {
 	return &DynamoDBRepository{
 		client:    client,
-		tableName: cmp.Or(tableName, "ITCP_APIKeys"),
+		tableName: cmp.Or(tableName, "TollgateAPIKeys"),
 	}
 }
 

@@ -11,10 +11,10 @@ func TestGenerateRawKey(t *testing.T) {
 		t.Fatalf("GenerateRawKey error: %v", err)
 	}
 
-	if !strings.HasPrefix(key, "itcp-live-") {
-		t.Errorf("expected prefix 'itcp-live-', got: %s", key)
+	if !strings.HasPrefix(key, "tlge-live-") {
+		t.Errorf("expected prefix 'tlge-live-', got: %s", key)
 	}
-	// "itcp-live-" (10文字) + hex32文字 = 42文字
+	// "tlge-live-" (10文字) + hex32文字 = 42文字
 	if len(key) != 42 {
 		t.Errorf("expected key length 42, got: %d (%s)", len(key), key)
 	}
@@ -27,7 +27,7 @@ func TestGenerateRawKey(t *testing.T) {
 }
 
 func TestHashKey(t *testing.T) {
-	raw := "itcp-live-0123456789abcdef0123456789abcdef"
+	raw := "tlge-live-0123456789abcdef0123456789abcdef"
 	h1 := HashKey(raw)
 	h2 := HashKey(raw)
 

@@ -4,24 +4,22 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
+	"github.com/northfieldzz/tollgate/internal/config"
 	"github.com/northfieldzz/tollgate/internal/domain/entity"
 	"github.com/northfieldzz/tollgate/internal/usecase"
 )
 
-// RouteConfig は動的ルーティングの 1 ルール定義
-type RouteConfig struct {
-	Prefix      string `json:"prefix"`                 // マッチさせるパスプレフィックス (例: "/mcp")
-	Target      string `json:"target"`                 // 転送先ベースURL (例: "http://mcp-gateway:8000")
-	Scope       string `json:"scope,omitempty"`        // 必要な API キースコープ (例: "mcp:*")
-	StripPrefix bool   `json:"strip_prefix,omitempty"` // true の場合、転送時に Prefix を除去する
-}
+// RouteConfig は動的ルーティングのルール定義 (config.RouteConfig のエイリアス)
+type RouteConfig = config.RouteConfig
 
 // routeEntry は初期化済みのルート情報
 type routeEntry struct {
@@ -54,9 +52,27 @@ func writeJSONError(w http.ResponseWriter, status int, errCode, message, reason 
 	})
 }
 
+// gatewayTransport はリバースプロキシ専用にチューニングされた HTTP トランスポート
+// アイドルコネクションプールを拡大し、高並行リクエスト時の TIME_WAIT 頻発とコネクション枯渇を防止する
+var gatewayTransport = &http.Transport{
+	Proxy: http.ProxyFromEnvironment,
+	DialContext: (&net.Dialer{
+		Timeout:   10 * time.Second,
+		KeepAlive: 30 * time.Second,
+	}).DialContext,
+	ForceAttemptHTTP2:     true,
+	MaxIdleConns:          1024,
+	MaxIdleConnsPerHost:   100,
+	IdleConnTimeout:       90 * time.Second,
+	TLSHandshakeTimeout:   10 * time.Second,
+	ExpectContinueTimeout: 1 * time.Second,
+	ResponseHeaderTimeout: 60 * time.Second,
+}
+
 // createSingleProxy は単一ターゲット向けのリバースプロキシインスタンスを構築する
 func createSingleProxy(target *url.URL, prefix string, stripPrefix bool) *httputil.ReverseProxy {
 	proxy := httputil.NewSingleHostReverseProxy(target)
+	proxy.Transport = gatewayTransport
 	originalDirector := proxy.Director
 
 	proxy.Director = func(req *http.Request) {

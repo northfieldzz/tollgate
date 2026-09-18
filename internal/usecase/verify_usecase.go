@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/northfieldzz/tollgate/internal/domain/entity"
@@ -12,8 +13,9 @@ import (
 )
 
 type VerifyUsecase struct {
-	repo    repository.KeyRepository
-	limiter *ratelimit.SlidingWindowLimiter
+	repo        repository.KeyRepository
+	limiter     *ratelimit.SlidingWindowLimiter
+	lastUsedMap sync.Map // keyHash -> time.Time (1分以内の重複更新をスロットリング)
 }
 
 func NewVerifyUsecase(repo repository.KeyRepository, limiter *ratelimit.SlidingWindowLimiter) *VerifyUsecase {
@@ -168,10 +170,8 @@ func (u *VerifyUsecase) VerifyKey(ctx context.Context, input entity.VerifyKeyInp
 		}
 	}
 
-	// 7. 最終利用日時の非同期更新 (メイン処理をブロックしない)
-	go func() {
-		_ = u.repo.UpdateLastUsedAt(context.Background(), keyHash, time.Now().UTC())
-	}()
+	// 7. 最終利用日時の非同期更新 (1分以内の連続リクエストはスロットリング)
+	u.recordLastUsed(keyHash)
 
 	metrics.VerificationsTotal.WithLabelValues(tenant, "allowed", "success").Inc()
 
@@ -187,4 +187,19 @@ func (u *VerifyUsecase) VerifyKey(ctx context.Context, input entity.VerifyKeyInp
 		LimitRPM:       key.RateLimitRPM,
 		MonthlyQuota:   key.MonthlyQuota,
 	}, nil
+}
+
+// recordLastUsed は同一キーに対する最終利用時刻の更新頻度を1分間に最大1回へスロットリングする
+func (u *VerifyUsecase) recordLastUsed(keyHash string) {
+	now := time.Now().UTC()
+	if val, ok := u.lastUsedMap.Load(keyHash); ok {
+		if lastTime, ok := val.(time.Time); ok && now.Sub(lastTime) < time.Minute {
+			return // 直近1分以内に更新済み
+		}
+	}
+	u.lastUsedMap.Store(keyHash, now)
+
+	go func() {
+		_ = u.repo.UpdateLastUsedAt(context.Background(), keyHash, now)
+	}()
 }

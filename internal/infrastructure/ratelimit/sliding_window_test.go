@@ -44,4 +44,25 @@ func TestSlidingWindowLimiter_Allow(t *testing.T) {
 	if remAfter != limit-1 {
 		t.Errorf("expected remaining %d, got %d", limit-1, remAfter)
 	}
+	limiter.Stop()
+}
+
+func TestSlidingWindowLimiter_Concurrent(t *testing.T) {
+	limiter := NewSlidingWindowLimiter(time.Minute)
+	defer limiter.Stop()
+
+	// 並行リクエストによる競合テスト
+	done := make(chan bool)
+	for i := 0; i < 50; i++ {
+		go func(id string) {
+			for j := 0; j < 100; j++ {
+				_, _, _ = limiter.Allow(id, 500)
+			}
+			done <- true
+		}("key-" + string(rune('A'+i%10)))
+	}
+
+	for i := 0; i < 50; i++ {
+		<-done
+	}
 }
