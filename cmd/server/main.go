@@ -1,6 +1,7 @@
 package main
 
 import (
+	"cmp"
 	"context"
 	"log"
 	"net/http"
@@ -20,20 +21,10 @@ import (
 )
 
 func main() {
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8000"
-	}
-
+	port := cmp.Or(os.Getenv("PORT"), "8000")
 	endpoint := os.Getenv("DYNAMODB_ENDPOINT")
-	region := os.Getenv("AWS_REGION")
-	if region == "" {
-		region = "ap-northeast-1"
-	}
-	tableName := os.Getenv("TABLE_NAME")
-	if tableName == "" {
-		tableName = "ITCP_APIKeys"
-	}
+	region := cmp.Or(os.Getenv("AWS_REGION"), "ap-northeast-1")
+	tableName := cmp.Or(os.Getenv("TABLE_NAME"), "ITCP_APIKeys")
 
 	log.Printf("[tollgate] Initializing with Region=%s, Endpoint=%s, Table=%s", region, endpoint, tableName)
 

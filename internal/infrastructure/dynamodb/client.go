@@ -1,6 +1,7 @@
 package dynamodb
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"time"
@@ -19,12 +20,9 @@ type DynamoDBRepository struct {
 }
 
 func NewDynamoDBRepository(client *dynamodb.Client, tableName string) repository.KeyRepository {
-	if tableName == "" {
-		tableName = "ITCP_APIKeys"
-	}
 	return &DynamoDBRepository{
 		client:    client,
-		tableName: tableName,
+		tableName: cmp.Or(tableName, "ITCP_APIKeys"),
 	}
 }
 
