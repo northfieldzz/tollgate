@@ -18,18 +18,20 @@ type VerifyKeyResponse struct {
 }
 
 func RegisterVerifyHandler(api huma.API, u *usecase.VerifyUsecase) {
-	huma.Register(api, huma.Operation{
-		OperationID: "verifyApiKey",
-		Method:      http.MethodPost,
-		Path:        "/api/v1/keys/verify",
-		Summary:     "キー検証 & レートリミット消費",
-		Description: "各 Web API (ai_engine / mcp_gateway / llm_gateway) がクライアントから受け取った API キーの有効性、スコープ合致、RPM レート消費、月間クォータ残量を検証します。",
-		Tags:        []string{"Verification"},
-	}, func(ctx context.Context, input *VerifyKeyRequest) (*VerifyKeyResponse, error) {
+	handler := func(ctx context.Context, input *VerifyKeyRequest) (*VerifyKeyResponse, error) {
 		out, err := u.VerifyKey(ctx, input.Body)
 		if err != nil {
 			return nil, huma.Error500InternalServerError("キー検証処理エラー", err)
 		}
 		return &VerifyKeyResponse{Body: *out}, nil
-	})
+	}
+
+	huma.Register(api, huma.Operation{
+		OperationID: "verifyApiKey",
+		Method:      http.MethodPost,
+		Path:        "/v1/verify",
+		Summary:     "キー検証 & レートリミット消費",
+		Description: "各 Web API (ai_engine / mcp_gateway / llm_gateway) がクライアントから受け取った API キーの有効性、スコープ合致、RPM レート消費、月間クォータ残量を検証します。",
+		Tags:        []string{"Verification"},
+	}, handler)
 }

@@ -28,7 +28,7 @@ ENV TABLE_NAME=TollgateAPIKeys
 
 EXPOSE 8000
 
-HEALTHCHECK --interval=10s --timeout=5s --retries=3 \
+HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --retries=3 \
   CMD wget -q --spider http://localhost:8000/health/live || exit 1
 
 CMD ["/app/tollgate"]

@@ -18,8 +18,8 @@
   - CIDR による IP アドレスホワイトリスト検証
 - **オブザーバビリティ**:
   - Prometheus メトリクスエンドポイント (`/metrics`)
-  - Liveness / Readiness ヘルスチェックエンドポイント (`/health/live`, `/health/ready`)
-  - OpenAPI 3.1 スキーマ提供 (`/openapi`, `/openapi.json`)
+  - Liveness / Readiness ヘルスチェック (`/health/live`, `/health/ready`, `/livez`, `/readyz`)
+  - OpenAPI 3.1 スキーマ提供 (`/openapi.json`)
 
 ---
 
@@ -164,7 +164,7 @@ JSON 形式で各サービスのルーティングを定義する。環境変数
 
 ### 2. スタンドアロン API モード
 
-プロキシ環境変数が一切設定されていない場合、キー管理 API および明示的検証 API (`/verify`) のみを提供する。
+プロキシ環境変数が一切設定されていない場合、キー管理 API および明示的検証 API (`/v1/verify`) のみを提供する。
 
 ---
 
@@ -172,16 +172,21 @@ JSON 形式で各サービスのルーティングを定義する。環境変数
 
 | メソッド | パス | 説明 |
 |---|---|---|
-| `GET` | `/health/live` | Liveness ヘルスチェック |
-| `GET` | `/health/ready` | Readiness ヘルスチェック (DynamoDB 接続確認) |
+| `GET` | `/health` | 総合ヘルスチェック |
+| `GET` | `/health/live`, `/livez` | Liveness ヘルスチェック (K8s プローブ対応) |
+| `GET` | `/health/ready`, `/readyz` | Readiness ヘルスチェック (DynamoDB 接続確認, K8s プローブ対応) |
 | `GET` | `/metrics` | Prometheus メトリクス |
 | `GET` | `OPENAPI_PATH` | OpenAPI 3.1 スキーマ (JSON, 例: `/openapi.json`, 環境変数で指定時のみ有効) |
 | `GET` | `DOCS_PATH` | Scalar ドキュメント UI (例: `/docs`, 環境変数で指定時のみ有効) |
-| `POST` | `/keys` | 新規 API キー発行 |
-| `GET` | `/keys` | テナントの API キー一覧取得 |
-| `DELETE` | `/keys/{key_id}` | API キーの失効 |
-| `POST` | `/keys/{key_id}/rotate` | API キーのローテーション |
-| `POST` | `/verify` | API キー検証および流量制御判定 |
+| `POST` | `/v1/keys` | 新規 API キー発行 |
+| `GET` | `/v1/keys` | テナントの API キー一覧取得 |
+| `GET` | `/v1/keys/{key_id}` | API キー詳細取得 |
+| `PATCH` | `/v1/keys/{key_id}` | API キー設定変更 |
+| `POST` | `/v1/keys/{key_id}/suspend` | API キーの一時停止 |
+| `POST` | `/v1/keys/{key_id}/resume` | API キーの再開 |
+| `POST` | `/v1/keys/{key_id}/rotate` | API キーのローテーション |
+| `DELETE` | `/v1/keys/{key_id}` | API キーの削除・物理失効 |
+| `POST` | `/v1/verify` | API キー検証および流量制御判定 |
 | `ANY` | `/*` | **(動的プロキシ)** `PROXY_ROUTES` 定義に基づく転送 |
 
 ---
