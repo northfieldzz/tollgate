@@ -279,7 +279,9 @@ func (r *DynamoDBRepository) IncrementMonthlyUsage(ctx context.Context, keyHash 
 
 	if val, ok := out.Attributes["current_month_usage"].(*types.AttributeValueMemberN); ok {
 		var total int64
-		fmt.Sscanf(val.Value, "%d", &total)
+		if _, err := fmt.Sscanf(val.Value, "%d", &total); err != nil {
+			return 0, fmt.Errorf("parse current_month_usage error: %w", err)
+		}
 		return total, nil
 	}
 	return 0, nil
