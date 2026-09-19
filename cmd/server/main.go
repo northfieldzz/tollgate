@@ -68,8 +68,8 @@ func main() {
 	limiter := ratelimit.NewSlidingWindowLimiter(time.Minute)
 	defer limiter.Stop()
 
-	keyUsecase := usecase.NewKeyUsecase(repo)
-	verifyUsecase := usecase.NewVerifyUsecase(repo, limiter)
+	keyUsecase := usecase.NewKeyUsecase(repo, cfg.HashSecret)
+	verifyUsecase := usecase.NewVerifyUsecase(repo, limiter, cfg.HashSecret)
 
 	// 4. 動的ルート定義 & リバースプロキシ構築
 	var proxyHandler http.Handler

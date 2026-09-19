@@ -30,6 +30,7 @@ type Config struct {
 	KeyCacheTTL      time.Duration
 	Routes           []*RouteConfig
 	ForwardTargetURL string
+	HashSecret       string
 }
 
 // Load は環境変数および設定ファイルから Config を構築する
@@ -38,6 +39,7 @@ func Load() (*Config, error) {
 	endpoint := os.Getenv("DYNAMODB_ENDPOINT")
 	region := cmp.Or(os.Getenv("AWS_REGION"), "ap-northeast-1")
 	tableName := cmp.Or(os.Getenv("TABLE_NAME"), "TollgateAPIKeys")
+	hashSecret := cmp.Or(os.Getenv("HASH_SECRET"), "default-insecure-secret")
 
 	// OpenAPI & Docs パス正規化 (空文字でなければ先頭スラッシュ補完)
 	openapiPath := normalizePath(os.Getenv("OPENAPI_PATH"))
@@ -71,6 +73,7 @@ func Load() (*Config, error) {
 		KeyCacheTTL:      keyCacheTTL,
 		Routes:           routes,
 		ForwardTargetURL: defaultTarget,
+		HashSecret:       hashSecret,
 	}, nil
 }
 

@@ -50,7 +50,7 @@ func (m *mockKeyRepo) Ping(ctx context.Context) error { return nil }
 func setupTestMultiProxy(t *testing.T, routes []*RouteConfig, defaultBackend http.HandlerFunc) (*MultiTargetProxy, *mockKeyRepo) {
 	repo := &mockKeyRepo{keys: make(map[string]*entity.APIKey)}
 	limiter := ratelimit.NewSlidingWindowLimiter(time.Minute)
-	vUsecase := usecase.NewVerifyUsecase(repo, limiter)
+	vUsecase := usecase.NewVerifyUsecase(repo, limiter, "")
 
 	var defURL string
 	if defaultBackend != nil {
@@ -98,7 +98,7 @@ func TestMultiTargetProxy_RoutingAndStripPrefix(t *testing.T) {
 
 	// 万能キー (全スコープ許可)
 	rawKey := "tlge-live-allpowerfull1234567890"
-	repo.keys[usecase.HashKey(rawKey)] = &entity.APIKey{
+	repo.keys[usecase.HashKey(rawKey, "")] = &entity.APIKey{
 		KeyID:        "key-admin",
 		TenantID:     "tenant-all",
 		IsActive:     true,
@@ -158,7 +158,7 @@ func TestMultiTargetProxy_ScopeEnforcement(t *testing.T) {
 
 	// llm:* のみを持つキー (mcp:* を持たない)
 	llmOnlyKey := "tlge-live-llmonly1234567890abcdef"
-	repo.keys[usecase.HashKey(llmOnlyKey)] = &entity.APIKey{
+	repo.keys[usecase.HashKey(llmOnlyKey, "")] = &entity.APIKey{
 		KeyID:        "key-llm",
 		TenantID:     "tenant-llm",
 		IsActive:     true,

@@ -15,13 +15,15 @@ import (
 type VerifyUsecase struct {
 	repo        repository.KeyRepository
 	limiter     *ratelimit.SlidingWindowLimiter
+	hashSecret  string
 	lastUsedMap sync.Map // keyHash -> time.Time (1分以内の重複更新をスロットリング)
 }
 
-func NewVerifyUsecase(repo repository.KeyRepository, limiter *ratelimit.SlidingWindowLimiter) *VerifyUsecase {
+func NewVerifyUsecase(repo repository.KeyRepository, limiter *ratelimit.SlidingWindowLimiter, hashSecret string) *VerifyUsecase {
 	return &VerifyUsecase{
-		repo:    repo,
-		limiter: limiter,
+		repo:       repo,
+		limiter:    limiter,
+		hashSecret: hashSecret,
 	}
 }
 
@@ -52,12 +54,26 @@ func (u *VerifyUsecase) VerifyKey(ctx context.Context, input entity.VerifyKeyInp
 		metrics.VerificationDuration.WithLabelValues("global").Observe(time.Since(start).Seconds())
 	}()
 
-	keyHash := HashKey(input.RawKey)
+	keyHash := HashKey(input.RawKey, u.hashSecret)
 	key, err := u.repo.GetKeyByHash(ctx, keyHash)
 	if err != nil {
 		metrics.VerificationsTotal.WithLabelValues("unknown", "rejected", "db_error").Inc()
 		return nil, err
 	}
+
+	// 既存キーの後方互換性フォールバック (Legacy SHA-256)
+	if key == nil {
+		legacyHash := LegacyHashKey(input.RawKey)
+		key, err = u.repo.GetKeyByHash(ctx, legacyHash)
+		if err != nil {
+			metrics.VerificationsTotal.WithLabelValues("unknown", "rejected", "db_error").Inc()
+			return nil, err
+		}
+		if key != nil {
+			keyHash = legacyHash
+		}
+	}
+
 	if key == nil {
 		metrics.VerificationsTotal.WithLabelValues("unknown", "rejected", "invalid_key").Inc()
 		return &entity.VerifyKeyOutput{

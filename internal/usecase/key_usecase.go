@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"crypto/rand"
+	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -14,11 +15,12 @@ import (
 )
 
 type KeyUsecase struct {
-	repo repository.KeyRepository
+	repo       repository.KeyRepository
+	hashSecret string
 }
 
-func NewKeyUsecase(repo repository.KeyRepository) *KeyUsecase {
-	return &KeyUsecase{repo: repo}
+func NewKeyUsecase(repo repository.KeyRepository, hashSecret string) *KeyUsecase {
+	return &KeyUsecase{repo: repo, hashSecret: hashSecret}
 }
 
 const (
@@ -43,8 +45,15 @@ func GenerateRawKey() (string, error) {
 	return fmt.Sprintf("%s%s", RawKeyPrefix, hex.EncodeToString(bytes)), nil
 }
 
-// HashKey は平文キーの SHA-256 ダイジェスト文字列を生成する
-func HashKey(rawKey string) string {
+// HashKey は平文キーとシークレットを用いた HMAC-SHA256 ダイジェスト文字列を生成する
+func HashKey(rawKey, secret string) string {
+	h := hmac.New(sha256.New, []byte(secret))
+	h.Write([]byte(rawKey))
+	return hex.EncodeToString(h.Sum(nil))
+}
+
+// LegacyHashKey は平文キーの SHA-256 ダイジェスト文字列を生成する (後方互換性用)
+func LegacyHashKey(rawKey string) string {
 	hash := sha256.Sum256([]byte(rawKey))
 	return hex.EncodeToString(hash[:])
 }
@@ -56,7 +65,7 @@ func (u *KeyUsecase) CreateKey(ctx context.Context, input entity.CreateKeyInput)
 		return nil, err
 	}
 
-	keyHash := HashKey(rawKey)
+	keyHash := HashKey(rawKey, u.hashSecret)
 	keyID := uuid.New().String()
 	keyPrefix := ExtractKeyPrefix(rawKey)
 
@@ -176,7 +185,7 @@ func (u *KeyUsecase) RotateKey(ctx context.Context, keyID string, input entity.R
 	if err != nil {
 		return nil, err
 	}
-	newKeyHash := HashKey(newRawKey)
+	newKeyHash := HashKey(newRawKey, u.hashSecret)
 	newPrefix := ExtractKeyPrefix(newRawKey)
 
 	hours := input.GracePeriodHours
