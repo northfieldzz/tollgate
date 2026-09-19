@@ -4,6 +4,8 @@ import (
 	"cmp"
 	"context"
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -138,19 +140,21 @@ func (r *DynamoDBRepository) UpdateKeySettings(ctx context.Context, keyHash stri
 	pk := "KEY#" + keyHash
 	now := time.Now().UTC().Format(time.RFC3339)
 
-	updateExpr := "SET updated_at = :now"
+	updates := make([]string, 0, 5)
+	updates = append(updates, "updated_at = :now")
+
 	exprVals := map[string]types.AttributeValue{
 		":now": &types.AttributeValueMemberS{Value: now},
 	}
 	exprNames := map[string]string{}
 
 	if input.Name != nil {
-		updateExpr += ", #nm = :name"
+		updates = append(updates, "#nm = :name")
 		exprNames["#nm"] = "name"
 		exprVals[":name"] = &types.AttributeValueMemberS{Value: *input.Name}
 	}
 	if input.Scopes != nil {
-		updateExpr += ", scopes = :scopes"
+		updates = append(updates, "scopes = :scopes")
 		scVals := make([]types.AttributeValue, len(*input.Scopes))
 		for i, sc := range *input.Scopes {
 			scVals[i] = &types.AttributeValueMemberS{Value: sc}
@@ -158,12 +162,12 @@ func (r *DynamoDBRepository) UpdateKeySettings(ctx context.Context, keyHash stri
 		exprVals[":scopes"] = &types.AttributeValueMemberL{Value: scVals}
 	}
 	if input.RateLimitRPM != nil {
-		updateExpr += ", rate_limit_rpm = :rpm"
-		exprVals[":rpm"] = &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", *input.RateLimitRPM)}
+		updates = append(updates, "rate_limit_rpm = :rpm")
+		exprVals[":rpm"] = &types.AttributeValueMemberN{Value: strconv.Itoa(*input.RateLimitRPM)}
 	}
 	if input.MonthlyQuota != nil {
-		updateExpr += ", monthly_quota = :quota"
-		exprVals[":quota"] = &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", *input.MonthlyQuota)}
+		updates = append(updates, "monthly_quota = :quota")
+		exprVals[":quota"] = &types.AttributeValueMemberN{Value: strconv.FormatInt(*input.MonthlyQuota, 10)}
 	}
 
 	inputParam := &dynamodb.UpdateItemInput{
@@ -171,7 +175,7 @@ func (r *DynamoDBRepository) UpdateKeySettings(ctx context.Context, keyHash stri
 		Key: map[string]types.AttributeValue{
 			"pk": &types.AttributeValueMemberS{Value: pk},
 		},
-		UpdateExpression:          aws.String(updateExpr),
+		UpdateExpression:          aws.String("SET " + strings.Join(updates, ", ")),
 		ExpressionAttributeValues: exprVals,
 		ReturnValues:              types.ReturnValueAllNew,
 	}
