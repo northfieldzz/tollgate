@@ -23,9 +23,10 @@ type RouteConfig = config.RouteConfig
 
 // routeEntry は初期化済みのルート情報
 type routeEntry struct {
-	config *RouteConfig
-	target *url.URL
-	proxy  *httputil.ReverseProxy
+	config      *RouteConfig
+	prefixSlash string
+	target      *url.URL
+	proxy       *httputil.ReverseProxy
 }
 
 // MultiTargetProxy はパスプレフィックスに基づいて振り分けるリバースプロキシ
@@ -132,8 +133,9 @@ func NewMultiTargetProxy(routes []*RouteConfig, defaultTargetURL string, verifyU
 				Scope:       cfg.Scope,
 				StripPrefix: cfg.StripPrefix,
 			},
-			target: target,
-			proxy:  proxy,
+			prefixSlash: prefix + "/",
+			target:      target,
+			proxy:       proxy,
 		})
 	}
 
@@ -217,7 +219,7 @@ func (m *MultiTargetProxy) matchRoute(path string) *routeEntry {
 	for _, entry := range m.routes {
 		prefix := entry.config.Prefix
 		// 完全一致 または "/prefix/..." のプレフィックス一致
-		if path == prefix || strings.HasPrefix(path, prefix+"/") {
+		if path == prefix || strings.HasPrefix(path, entry.prefixSlash) {
 			if len(prefix) > longestPrefixLen {
 				longestPrefixLen = len(prefix)
 				bestMatch = entry
