@@ -20,24 +20,24 @@ type RotationMeta struct {
 
 // APIKey は DynamoDB (TollgateAPIKeys) に永続化される API キー実体
 type APIKey struct {
-	PK                 string        `dynamodbav:"pk" json:"-"`                                 // KEY#<sha256_hash>
-	KeyID              string        `dynamodbav:"key_id" json:"key_id"`                         // UUID
-	KeyPrefix          string        `dynamodbav:"key_prefix" json:"key_prefix"`                 // tlge-live-xxxx
-	Name               string        `dynamodbav:"name" json:"name"`                             // 表示名
-	TenantID           string        `dynamodbav:"tenant_id" json:"tenant_id"`                   // GSI Partition Key
-	ServiceID          string        `dynamodbav:"service_id" json:"service_id,omitempty"`       // サービス名
-	Scopes             []string      `dynamodbav:"scopes" json:"scopes"`                         // 許可スコープ ("llm:*", "ai:workflows", "mcp:tools" 等)
-	RateLimitRPM       int           `dynamodbav:"rate_limit_rpm" json:"rate_limit_rpm"`         // 1分間リクエスト上限
-	MonthlyQuota       int64         `dynamodbav:"monthly_quota" json:"monthly_quota"`           // 月間上限 (0: 無制限)
-	CurrentMonthUsage  int64         `dynamodbav:"current_month_usage" json:"current_month_usage"` // 当月利用数
-	CurrentMonth       string        `dynamodbav:"current_month" json:"current_month"`           // YYYY-MM
-	Status             KeyStatus     `dynamodbav:"status" json:"status"`                         // active, suspended, rotating, revoked
-	IsActive           bool          `dynamodbav:"is_active" json:"is_active"`                   // 有効フラグ
-	LastUsedAt         *time.Time    `dynamodbav:"last_used_at,omitempty" json:"last_used_at,omitempty"` // 最終利用日時
-	Rotation           *RotationMeta `dynamodbav:"rotation_meta,omitempty" json:"rotation_meta,omitempty"`
-	ExpiresAt          *int64        `dynamodbav:"expires_at,omitempty" json:"expires_at,omitempty"` // Unix 秒 (TTL)
-	CreatedAt          string        `dynamodbav:"created_at" json:"created_at"`                 // ISO 8601 (GSI Sort Key)
-	UpdatedAt          string        `dynamodbav:"updated_at" json:"updated_at"`                 // ISO 8601
+	PK                string        `dynamodbav:"pk" json:"-"`                                          // KEY#<sha256_hash>
+	KeyID             string        `dynamodbav:"key_id" json:"key_id"`                                 // UUID
+	KeyPrefix         string        `dynamodbav:"key_prefix" json:"key_prefix"`                         // tlge-live-xxxx
+	Name              string        `dynamodbav:"name" json:"name"`                                     // 表示名
+	TenantID          string        `dynamodbav:"tenant_id" json:"tenant_id"`                           // GSI Partition Key
+	ServiceID         string        `dynamodbav:"service_id" json:"service_id,omitempty"`               // サービス名
+	Scopes            []string      `dynamodbav:"scopes" json:"scopes"`                                 // 許可スコープ ("llm:*", "ai:workflows", "mcp:tools" 等)
+	RateLimitRPM      int           `dynamodbav:"rate_limit_rpm" json:"rate_limit_rpm"`                 // 1分間リクエスト上限
+	MonthlyQuota      int64         `dynamodbav:"monthly_quota" json:"monthly_quota"`                   // 月間上限 (0: 無制限)
+	CurrentMonthUsage int64         `dynamodbav:"current_month_usage" json:"current_month_usage"`       // 当月利用数
+	CurrentMonth      string        `dynamodbav:"current_month" json:"current_month"`                   // YYYY-MM
+	Status            KeyStatus     `dynamodbav:"status" json:"status"`                                 // active, suspended, rotating, revoked
+	IsActive          bool          `dynamodbav:"is_active" json:"is_active"`                           // 有効フラグ
+	LastUsedAt        *time.Time    `dynamodbav:"last_used_at,omitempty" json:"last_used_at,omitempty"` // 最終利用日時
+	Rotation          *RotationMeta `dynamodbav:"rotation_meta,omitempty" json:"rotation_meta,omitempty"`
+	ExpiresAt         *int64        `dynamodbav:"expires_at,omitempty" json:"expires_at,omitempty"` // Unix 秒 (TTL)
+	CreatedAt         string        `dynamodbav:"created_at" json:"created_at"`                     // ISO 8601 (GSI Sort Key)
+	UpdatedAt         string        `dynamodbav:"updated_at" json:"updated_at"`                     // ISO 8601
 }
 
 // CreateKeyInput は API キー新規発行の入力パラメータ
