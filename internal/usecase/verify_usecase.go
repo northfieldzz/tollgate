@@ -2,7 +2,6 @@ package usecase
 
 import (
 	"context"
-	"strings"
 	"sync"
 	"time"
 
@@ -34,10 +33,13 @@ func matchScope(required string, allowedScopes []string) bool {
 		if allowed == "*" || allowed == required {
 			return true
 		}
-		if strings.HasSuffix(allowed, ":*") {
-			prefix := strings.TrimSuffix(allowed, ":*")
-			if strings.HasPrefix(required, prefix+":") || required == prefix {
-				return true
+		l := len(allowed)
+		if l >= 2 && allowed[l-2] == ':' && allowed[l-1] == '*' {
+			prefixLen := l - 2
+			if len(required) >= prefixLen && required[:prefixLen] == allowed[:prefixLen] {
+				if len(required) == prefixLen || required[prefixLen] == ':' {
+					return true
+				}
 			}
 		}
 	}
