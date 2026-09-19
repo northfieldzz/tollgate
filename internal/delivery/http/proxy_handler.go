@@ -189,7 +189,7 @@ func LoadRoutesFromEnvOrConfig() ([]*RouteConfig, string) {
 	return routes, defaultTarget
 }
 
-// extractAPIKey はヘッダーまたはクエリから API キーを取得する
+// extractAPIKey はヘッダーから API キーを取得する
 func extractAPIKey(r *http.Request) string {
 	if key := r.Header.Get("X-API-Key"); key != "" {
 		return key
@@ -199,12 +199,6 @@ func extractAPIKey(r *http.Request) string {
 		if len(parts) == 2 && strings.EqualFold(parts[0], "bearer") {
 			return strings.TrimSpace(parts[1])
 		}
-	}
-	if key := r.URL.Query().Get("api_key"); key != "" {
-		return key
-	}
-	if key := r.URL.Query().Get("key"); key != "" {
-		return key
 	}
 	return ""
 }
