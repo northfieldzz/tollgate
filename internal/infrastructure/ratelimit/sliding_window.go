@@ -114,19 +114,28 @@ func (l *SlidingWindowLimiter) cleanupLoop(interval time.Duration) {
 			cutoff := now.Add(-l.window)
 			for _, s := range l.shards {
 				s.mu.Lock()
-				for id, timestamps := range s.windows {
-					validStart := 0
-					for validStart < len(timestamps) && !timestamps[validStart].After(cutoff) {
-						validStart++
-					}
-					if validStart >= len(timestamps) {
-						delete(s.windows, id)
-					} else if validStart > 0 {
-						copy(timestamps, timestamps[validStart:])
-						s.windows[id] = timestamps[:len(timestamps)-validStart]
-					}
+				keys := make([]string, 0, len(s.windows))
+				for id := range s.windows {
+					keys = append(keys, id)
 				}
 				s.mu.Unlock()
+
+				for _, id := range keys {
+					s.mu.Lock()
+					if timestamps, exists := s.windows[id]; exists {
+						validStart := 0
+						for validStart < len(timestamps) && !timestamps[validStart].After(cutoff) {
+							validStart++
+						}
+						if validStart >= len(timestamps) {
+							delete(s.windows, id)
+						} else if validStart > 0 {
+							copy(timestamps, timestamps[validStart:])
+							s.windows[id] = timestamps[:len(timestamps)-validStart]
+						}
+					}
+					s.mu.Unlock()
+				}
 			}
 		}
 	}
