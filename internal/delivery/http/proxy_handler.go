@@ -94,7 +94,7 @@ func createSingleProxy(target *url.URL, prefix string, stripPrefix bool) *httput
 	}
 
 	proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
-		log.Printf("[proxy] Error proxying to %s%s: %v", target.String(), r.URL.Path, err)
+		log.Printf("[proxy] Error proxying to %s%q: %v", target.String(), r.URL.Path, err)
 		writeJSONError(w, http.StatusBadGateway, "bad_gateway", "Backend service is unreachable", "")
 	}
 
