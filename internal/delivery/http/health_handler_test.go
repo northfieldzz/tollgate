@@ -16,15 +16,31 @@ type mockHealthRepo struct {
 }
 
 func (m *mockHealthRepo) PutKey(ctx context.Context, key *entity.APIKey) error { return nil }
-func (m *mockHealthRepo) GetKeyByHash(ctx context.Context, keyHash string) (*entity.APIKey, error) { return nil, nil }
-func (m *mockHealthRepo) GetKeyByID(ctx context.Context, keyID string) (*entity.APIKey, error) { return nil, nil }
-func (m *mockHealthRepo) ListKeysByTenant(ctx context.Context, tenantID string) ([]*entity.APIKey, error) { return nil, nil }
-func (m *mockHealthRepo) UpdateKeyStatus(ctx context.Context, keyHash string, status entity.KeyStatus, isActive bool) error { return nil }
-func (m *mockHealthRepo) UpdateKeySettings(ctx context.Context, keyHash string, input entity.UpdateKeyInput) (*entity.APIKey, error) { return nil, nil }
-func (m *mockHealthRepo) RotateKey(ctx context.Context, oldKeyHash, newKeyHash, newKeyPrefix string, gracePeriodExpiresAt time.Time) (*entity.APIKey, error) { return nil, nil }
+func (m *mockHealthRepo) GetKeyByHash(ctx context.Context, keyHash string) (*entity.APIKey, error) {
+	return nil, nil
+}
+func (m *mockHealthRepo) GetKeyByID(ctx context.Context, keyID string) (*entity.APIKey, error) {
+	return nil, nil
+}
+func (m *mockHealthRepo) ListKeysByTenant(ctx context.Context, tenantID string) ([]*entity.APIKey, error) {
+	return nil, nil
+}
+func (m *mockHealthRepo) UpdateKeyStatus(ctx context.Context, keyHash string, status entity.KeyStatus, isActive bool) error {
+	return nil
+}
+func (m *mockHealthRepo) UpdateKeySettings(ctx context.Context, keyHash string, input entity.UpdateKeyInput) (*entity.APIKey, error) {
+	return nil, nil
+}
+func (m *mockHealthRepo) RotateKey(ctx context.Context, oldKeyHash, newKeyHash, newKeyPrefix string, gracePeriodExpiresAt time.Time) (*entity.APIKey, error) {
+	return nil, nil
+}
 func (m *mockHealthRepo) DeleteKey(ctx context.Context, keyHash string) error { return nil }
-func (m *mockHealthRepo) IncrementMonthlyUsage(ctx context.Context, keyHash string, month string, increment int64) (int64, error) { return 0, nil }
-func (m *mockHealthRepo) UpdateLastUsedAt(ctx context.Context, keyHash string, lastUsed time.Time) error { return nil }
+func (m *mockHealthRepo) IncrementMonthlyUsage(ctx context.Context, keyHash string, month string, increment int64) (int64, error) {
+	return 0, nil
+}
+func (m *mockHealthRepo) UpdateLastUsedAt(ctx context.Context, keyHash string, lastUsed time.Time) error {
+	return nil
+}
 func (m *mockHealthRepo) Ping(ctx context.Context) error { return m.pingErr }
 
 func TestHealthHandler_HealthCheck(t *testing.T) {

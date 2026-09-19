@@ -84,12 +84,12 @@ func TestVerifyUsecase_VerifyKey(t *testing.T) {
 	currentMonth := now.UTC().Format("2006-01")
 
 	tests := []struct {
-		name          string
-		inputRawKey   string
-		requiredScope string
-		mockGetKey    func(ctx context.Context, keyHash string) (*entity.APIKey, error)
-		mockIncUsage  func(ctx context.Context, keyHash string, month string, increment int64) (int64, error)
-		expectedValid bool
+		name           string
+		inputRawKey    string
+		requiredScope  string
+		mockGetKey     func(ctx context.Context, keyHash string) (*entity.APIKey, error)
+		mockIncUsage   func(ctx context.Context, keyHash string, month string, increment int64) (int64, error)
+		expectedValid  bool
 		expectedReason string
 	}{
 		{
@@ -113,7 +113,7 @@ func TestVerifyUsecase_VerifyKey(t *testing.T) {
 			mockGetKey: func(ctx context.Context, keyHash string) (*entity.APIKey, error) {
 				return nil, nil // not found
 			},
-			expectedValid: false,
+			expectedValid:  false,
 			expectedReason: "invalid_key",
 		},
 		{
@@ -129,13 +129,13 @@ func TestVerifyUsecase_VerifyKey(t *testing.T) {
 			inputRawKey: "tlge-live-expired",
 			mockGetKey: func(ctx context.Context, keyHash string) (*entity.APIKey, error) {
 				return &entity.APIKey{
-					KeyID:        "key-expired",
-					ExpiresAt:    &pastUnix,
-					IsActive:     true,
-					Status:       entity.StatusActive,
+					KeyID:     "key-expired",
+					ExpiresAt: &pastUnix,
+					IsActive:  true,
+					Status:    entity.StatusActive,
 				}, nil
 			},
-			expectedValid: false,
+			expectedValid:  false,
 			expectedReason: "expired",
 		},
 		{
@@ -143,15 +143,15 @@ func TestVerifyUsecase_VerifyKey(t *testing.T) {
 			inputRawKey: "tlge-live-rotation-expired",
 			mockGetKey: func(ctx context.Context, keyHash string) (*entity.APIKey, error) {
 				return &entity.APIKey{
-					KeyID:        "key-rot-expired",
-					IsActive:     true,
-					Status:       entity.StatusRotating,
+					KeyID:    "key-rot-expired",
+					IsActive: true,
+					Status:   entity.StatusRotating,
 					Rotation: &entity.RotationMeta{
 						GracePeriodExpiresAt: now.Add(-time.Hour),
 					},
 				}, nil
 			},
-			expectedValid: false,
+			expectedValid:  false,
 			expectedReason: "rotation_expired",
 		},
 		{
@@ -159,12 +159,12 @@ func TestVerifyUsecase_VerifyKey(t *testing.T) {
 			inputRawKey: "tlge-live-suspended",
 			mockGetKey: func(ctx context.Context, keyHash string) (*entity.APIKey, error) {
 				return &entity.APIKey{
-					KeyID:        "key-susp",
-					IsActive:     true, // Even if true, status overrides
-					Status:       entity.StatusSuspended,
+					KeyID:    "key-susp",
+					IsActive: true, // Even if true, status overrides
+					Status:   entity.StatusSuspended,
 				}, nil
 			},
-			expectedValid: false,
+			expectedValid:  false,
 			expectedReason: "suspended",
 		},
 		{
@@ -172,12 +172,12 @@ func TestVerifyUsecase_VerifyKey(t *testing.T) {
 			inputRawKey: "tlge-live-revoked",
 			mockGetKey: func(ctx context.Context, keyHash string) (*entity.APIKey, error) {
 				return &entity.APIKey{
-					KeyID:        "key-rev",
-					IsActive:     false,
-					Status:       entity.StatusRevoked,
+					KeyID:    "key-rev",
+					IsActive: false,
+					Status:   entity.StatusRevoked,
 				}, nil
 			},
-			expectedValid: false,
+			expectedValid:  false,
 			expectedReason: "revoked",
 		},
 		{
@@ -186,13 +186,13 @@ func TestVerifyUsecase_VerifyKey(t *testing.T) {
 			requiredScope: "ai:workflows:execute",
 			mockGetKey: func(ctx context.Context, keyHash string) (*entity.APIKey, error) {
 				return &entity.APIKey{
-					KeyID:        "key-scope",
-					IsActive:     true,
-					Status:       entity.StatusActive,
-					Scopes:       []string{"mcp:tools:execute"}, // missing ai scope
+					KeyID:    "key-scope",
+					IsActive: true,
+					Status:   entity.StatusActive,
+					Scopes:   []string{"mcp:tools:execute"}, // missing ai scope
 				}, nil
 			},
-			expectedValid: false,
+			expectedValid:  false,
 			expectedReason: "scope_mismatch",
 		},
 		{
@@ -207,7 +207,7 @@ func TestVerifyUsecase_VerifyKey(t *testing.T) {
 					RateLimitRPM: 1,
 				}, nil
 			},
-			expectedValid: false,
+			expectedValid:  false,
 			expectedReason: "rate_limit_exceeded",
 		},
 		{
@@ -225,7 +225,7 @@ func TestVerifyUsecase_VerifyKey(t *testing.T) {
 					CurrentMonthUsage: 1000, // already reached
 				}, nil
 			},
-			expectedValid: false,
+			expectedValid:  false,
 			expectedReason: "quota_exceeded",
 		},
 		{
