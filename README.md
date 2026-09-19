@@ -155,6 +155,8 @@ JSON 形式で各サービスのルーティングを定義する。環境変数
 - `X-Key-Prefix`: キープレフィックス
 - `X-Service-ID`: サービス ID
 
+※詳細な仕様やバックエンドサービス側の実装要件については [連携バックエンドサービス実装仕様書](docs/backend_integration.md) を参照。
+
 #### ストリーミング対応
 
 - **SSE (Server-Sent Events)**: `FlushInterval = -1` によりバッファリングなしで即座にリアルタイム中継。
