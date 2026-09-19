@@ -36,3 +36,6 @@ Thumbs.db
 
 # Docker / nerdctl
 .docker/
+
+# CodeBoarding
+.codeboarding/
