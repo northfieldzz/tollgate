@@ -38,7 +38,7 @@ func NewCachedKeyRepository(underlying repository.KeyRepository, ttl time.Durati
 func (c *CachedKeyRepository) PutKey(ctx context.Context, key *entity.APIKey) error {
 	err := c.underlying.PutKey(ctx, key)
 	if err == nil {
-		c.invalidate(key.PK[4:]) // "KEY#" プレフィックスを除去したハッシュ
+		c.invalidate(key.GetHash()) // "KEY#" プレフィックスを除去したハッシュ
 	}
 	return err
 }

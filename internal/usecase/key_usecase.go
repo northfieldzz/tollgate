@@ -128,7 +128,7 @@ func (u *KeyUsecase) UpdateKey(ctx context.Context, keyID string, input entity.U
 		return nil, err
 	}
 
-	keyHash := key.PK[4:] // "KEY#" プレフィックスを除去
+	keyHash := key.GetHash() // "KEY#" プレフィックスを除去
 	return u.repo.UpdateKeySettings(ctx, keyHash, input)
 }
 
@@ -139,7 +139,7 @@ func (u *KeyUsecase) SuspendKey(ctx context.Context, keyID string) (*entity.APIK
 		return nil, err
 	}
 
-	keyHash := key.PK[4:]
+	keyHash := key.GetHash()
 	if err := u.repo.UpdateKeyStatus(ctx, keyHash, entity.StatusSuspended, false); err != nil {
 		return nil, err
 	}
@@ -155,7 +155,7 @@ func (u *KeyUsecase) ResumeKey(ctx context.Context, keyID string) (*entity.APIKe
 		return nil, err
 	}
 
-	keyHash := key.PK[4:]
+	keyHash := key.GetHash()
 	if err := u.repo.UpdateKeyStatus(ctx, keyHash, entity.StatusActive, true); err != nil {
 		return nil, err
 	}
@@ -171,7 +171,7 @@ func (u *KeyUsecase) RotateKey(ctx context.Context, keyID string, input entity.R
 		return nil, err
 	}
 
-	oldKeyHash := key.PK[4:]
+	oldKeyHash := key.GetHash()
 	newRawKey, err := GenerateRawKey()
 	if err != nil {
 		return nil, err
@@ -204,6 +204,6 @@ func (u *KeyUsecase) DeleteKey(ctx context.Context, keyID string) error {
 	if err != nil {
 		return err
 	}
-	keyHash := key.PK[4:]
+	keyHash := key.GetHash()
 	return u.repo.DeleteKey(ctx, keyHash)
 }

@@ -40,6 +40,14 @@ type APIKey struct {
 	UpdatedAt          string        `dynamodbav:"updated_at" json:"updated_at"`                 // ISO 8601
 }
 
+// GetHash returns the hash string by removing the "KEY#" prefix from PK.
+func (k *APIKey) GetHash() string {
+	if len(k.PK) > 4 {
+		return k.PK[4:]
+	}
+	return ""
+}
+
 // CreateKeyInput は API キー新規発行の入力パラメータ
 type CreateKeyInput struct {
 	Name         string   `json:"name" doc:"API キーの名称・用途" required:"true" example:"Production AI Engine Workflow"`
