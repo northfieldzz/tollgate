@@ -89,11 +89,19 @@ func (u *VerifyUsecase) VerifyKey(ctx context.Context, input entity.VerifyKeyInp
 	}
 
 	tenant := key.TenantID
+	tenantLabel := tenant
+	if tenantLabel == "" {
+		if key.ServiceID != "" {
+			tenantLabel = "service:" + key.ServiceID
+		} else {
+			tenantLabel = "unknown"
+		}
+	}
 
 	// 1. 有効期限 (TTL) チェック
 	nowUnix := time.Now().Unix()
 	if key.ExpiresAt != nil && *key.ExpiresAt < nowUnix {
-		metrics.VerificationsTotal.WithLabelValues(tenant, "rejected", "expired").Inc()
+		metrics.VerificationsTotal.WithLabelValues(tenantLabel, "rejected", "expired").Inc()
 		return &entity.VerifyKeyOutput{
 			Valid:     false,
 			Reason:    "expired",
@@ -106,7 +114,7 @@ func (u *VerifyUsecase) VerifyKey(ctx context.Context, input entity.VerifyKeyInp
 	// 2. ローテーション猶予期間チェック
 	if key.Status == entity.StatusRotating && key.Rotation != nil {
 		if time.Now().After(key.Rotation.GracePeriodExpiresAt) {
-			metrics.VerificationsTotal.WithLabelValues(tenant, "rejected", "rotation_expired").Inc()
+			metrics.VerificationsTotal.WithLabelValues(tenantLabel, "rejected", "rotation_expired").Inc()
 			return &entity.VerifyKeyOutput{
 				Valid:     false,
 				Reason:    "rotation_expired",
@@ -123,7 +131,7 @@ func (u *VerifyUsecase) VerifyKey(ctx context.Context, input entity.VerifyKeyInp
 		if key.Status == entity.StatusRevoked {
 			reason = "revoked"
 		}
-		metrics.VerificationsTotal.WithLabelValues(tenant, "rejected", reason).Inc()
+		metrics.VerificationsTotal.WithLabelValues(tenantLabel, "rejected", reason).Inc()
 		return &entity.VerifyKeyOutput{
 			Valid:     false,
 			Reason:    reason,
@@ -135,7 +143,7 @@ func (u *VerifyUsecase) VerifyKey(ctx context.Context, input entity.VerifyKeyInp
 
 	// 4. スコープ認可判定
 	if !matchScope(input.RequiredScope, key.Scopes) {
-		metrics.VerificationsTotal.WithLabelValues(tenant, "rejected", "scope_mismatch").Inc()
+		metrics.VerificationsTotal.WithLabelValues(tenantLabel, "rejected", "scope_mismatch").Inc()
 		return &entity.VerifyKeyOutput{
 			Valid:     false,
 			Reason:    "scope_mismatch",
@@ -149,8 +157,8 @@ func (u *VerifyUsecase) VerifyKey(ctx context.Context, input entity.VerifyKeyInp
 	// 5. スライディングウィンドウ RPM レート判定
 	allowed, remainingRPM, _ := u.limiter.Allow(key.KeyID, key.RateLimitRPM)
 	if !allowed {
-		metrics.VerificationsTotal.WithLabelValues(tenant, "rejected", "rate_limit_exceeded").Inc()
-		metrics.RateLimitExceededTotal.WithLabelValues(tenant, key.KeyPrefix).Inc()
+		metrics.VerificationsTotal.WithLabelValues(tenantLabel, "rejected", "rate_limit_exceeded").Inc()
+		metrics.RateLimitExceededTotal.WithLabelValues(tenantLabel, key.KeyPrefix).Inc()
 		return &entity.VerifyKeyOutput{
 			Valid:        false,
 			Reason:       "rate_limit_exceeded",
@@ -167,8 +175,8 @@ func (u *VerifyUsecase) VerifyKey(ctx context.Context, input entity.VerifyKeyInp
 	var remainingQuota int64 = -1 // -1 は無制限
 	if key.MonthlyQuota > 0 {
 		if key.CurrentMonth == currentMonth && key.CurrentMonthUsage >= key.MonthlyQuota {
-			metrics.VerificationsTotal.WithLabelValues(tenant, "rejected", "quota_exceeded").Inc()
-			metrics.RateLimitExceededTotal.WithLabelValues(tenant, key.KeyPrefix).Inc()
+			metrics.VerificationsTotal.WithLabelValues(tenantLabel, "rejected", "quota_exceeded").Inc()
+			metrics.RateLimitExceededTotal.WithLabelValues(tenantLabel, key.KeyPrefix).Inc()
 			return &entity.VerifyKeyOutput{
 				Valid:          false,
 				Reason:         "quota_exceeded",
@@ -195,7 +203,7 @@ func (u *VerifyUsecase) VerifyKey(ctx context.Context, input entity.VerifyKeyInp
 	// 7. 最終利用日時の非同期更新 (1分以内の連続リクエストはスロットリング)
 	u.recordLastUsed(keyHash)
 
-	metrics.VerificationsTotal.WithLabelValues(tenant, "allowed", "success").Inc()
+	metrics.VerificationsTotal.WithLabelValues(tenantLabel, "allowed", "success").Inc()
 
 	return &entity.VerifyKeyOutput{
 		Valid:          true,

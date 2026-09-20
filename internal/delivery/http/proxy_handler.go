@@ -283,14 +283,37 @@ func (m *MultiTargetProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Quota-Remaining", strconv.FormatInt(verifyOut.RemainingQuota, 10))
 	}
 
-	// 6. 下流バックエンドにコンテキスト情報を付与
+	// 6. テナント解決 & コンフリクト検証
+	clientTenantID := strings.TrimSpace(r.Header.Get("X-Tenant-ID"))
+
 	// クライアントからのヘッダースプーフィングを防ぐため、事前に削除
 	r.Header.Del("X-Tenant-ID")
 	r.Header.Del("X-Key-ID")
 	r.Header.Del("X-Key-Prefix")
 	r.Header.Del("X-Service-ID")
 
-	r.Header.Set("X-Tenant-ID", verifyOut.TenantID)
+	var resolvedTenantID string
+	if verifyOut.TenantID != "" {
+		// 【テナントキー (固定テナント)】
+		if clientTenantID != "" && clientTenantID != verifyOut.TenantID {
+			writeJSONError(w, http.StatusForbidden, "tenant_mismatch",
+				fmt.Sprintf("API key is bound to tenant %q, but request specified %q", verifyOut.TenantID, clientTenantID),
+				"tenant_conflict")
+			return
+		}
+		resolvedTenantID = verifyOut.TenantID
+	} else {
+		// 【サービスキー (動的マルチテナント)】
+		if clientTenantID == "" {
+			writeJSONError(w, http.StatusBadRequest, "missing_tenant_id",
+				"X-Tenant-ID header is required when using a service API key without a bound tenant",
+				"tenant_required")
+			return
+		}
+		resolvedTenantID = clientTenantID
+	}
+
+	r.Header.Set("X-Tenant-ID", resolvedTenantID)
 	r.Header.Set("X-Key-ID", verifyOut.KeyID)
 	r.Header.Set("X-Key-Prefix", verifyOut.KeyPrefix)
 	if verifyOut.ServiceID != "" {

@@ -256,3 +256,127 @@ func TestMultiTargetProxy_matchRoute(t *testing.T) {
 		})
 	}
 }
+
+func TestMultiTargetProxy_TenantResolutionAndConflictValidation(t *testing.T) {
+	var receivedTenantID, receivedServiceID string
+
+	backendServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedTenantID = r.Header.Get("X-Tenant-ID")
+		receivedServiceID = r.Header.Get("X-Service-ID")
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(backendServer.Close)
+
+	routes := []*RouteConfig{
+		{Prefix: "/llm", Target: backendServer.URL, Scope: "llm:*"},
+	}
+	proxy, repo := setupTestMultiProxy(t, routes, nil)
+
+	// テナント固定キー
+	tenantKey := "tlge-live-tenantkey1234567890abcdef"
+	repo.keys[usecase.HashKey(tenantKey)] = &entity.APIKey{
+		KeyID:        "key-tenant-1",
+		KeyPrefix:    "tlge-live-tena",
+		TenantID:     "tenant-corp-a",
+		ServiceID:    "service-corp",
+		IsActive:     true,
+		Status:       entity.StatusActive,
+		Scopes:       []string{"llm:*"},
+		RateLimitRPM: 100,
+	}
+
+	// サービスキー (TenantID なし)
+	serviceKey := "tlge-live-servicekey1234567890abcdef"
+	repo.keys[usecase.HashKey(serviceKey)] = &entity.APIKey{
+		KeyID:        "key-service-1",
+		KeyPrefix:    "tlge-live-serv",
+		TenantID:     "",
+		ServiceID:    "multi-tenant-saas",
+		IsActive:     true,
+		Status:       entity.StatusActive,
+		Scopes:       []string{"llm:*"},
+		RateLimitRPM: 100,
+	}
+
+	t.Run("TenantKey without X-Tenant-ID header succeeds and injects key's TenantID", func(t *testing.T) {
+		receivedTenantID = ""
+		receivedServiceID = ""
+
+		req := httptest.NewRequest("POST", "/llm/v1/chat", nil)
+		req.Header.Set("Authorization", "Bearer "+tenantKey)
+		rec := httptest.NewRecorder()
+		proxy.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected status 200, got %d (body: %s)", rec.Code, rec.Body.String())
+		}
+		if receivedTenantID != "tenant-corp-a" {
+			t.Errorf("expected TenantID 'tenant-corp-a', got %q", receivedTenantID)
+		}
+		if receivedServiceID != "service-corp" {
+			t.Errorf("expected ServiceID 'service-corp', got %q", receivedServiceID)
+		}
+	})
+
+	t.Run("TenantKey with matching X-Tenant-ID header succeeds", func(t *testing.T) {
+		receivedTenantID = ""
+
+		req := httptest.NewRequest("POST", "/llm/v1/chat", nil)
+		req.Header.Set("Authorization", "Bearer "+tenantKey)
+		req.Header.Set("X-Tenant-ID", "tenant-corp-a")
+		rec := httptest.NewRecorder()
+		proxy.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected status 200, got %d", rec.Code)
+		}
+		if receivedTenantID != "tenant-corp-a" {
+			t.Errorf("expected TenantID 'tenant-corp-a', got %q", receivedTenantID)
+		}
+	})
+
+	t.Run("TenantKey with conflicting X-Tenant-ID header returns 403 Forbidden", func(t *testing.T) {
+		req := httptest.NewRequest("POST", "/llm/v1/chat", nil)
+		req.Header.Set("Authorization", "Bearer "+tenantKey)
+		req.Header.Set("X-Tenant-ID", "tenant-corp-b")
+		rec := httptest.NewRecorder()
+		proxy.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusForbidden {
+			t.Fatalf("expected status 403 Forbidden, got %d (body: %s)", rec.Code, rec.Body.String())
+		}
+	})
+
+	t.Run("ServiceKey with X-Tenant-ID header forwards dynamic tenant and injects ServiceID", func(t *testing.T) {
+		receivedTenantID = ""
+		receivedServiceID = ""
+
+		req := httptest.NewRequest("POST", "/llm/v1/chat", nil)
+		req.Header.Set("Authorization", "Bearer "+serviceKey)
+		req.Header.Set("X-Tenant-ID", "customer-dynamic-999")
+		rec := httptest.NewRecorder()
+		proxy.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected status 200, got %d (body: %s)", rec.Code, rec.Body.String())
+		}
+		if receivedTenantID != "customer-dynamic-999" {
+			t.Errorf("expected TenantID 'customer-dynamic-999', got %q", receivedTenantID)
+		}
+		if receivedServiceID != "multi-tenant-saas" {
+			t.Errorf("expected ServiceID 'multi-tenant-saas', got %q", receivedServiceID)
+		}
+	})
+
+	t.Run("ServiceKey without X-Tenant-ID header returns 400 Bad Request", func(t *testing.T) {
+		req := httptest.NewRequest("POST", "/llm/v1/chat", nil)
+		req.Header.Set("Authorization", "Bearer "+serviceKey)
+		rec := httptest.NewRecorder()
+		proxy.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("expected status 400 Bad Request, got %d (body: %s)", rec.Code, rec.Body.String())
+		}
+	})
+}
+
