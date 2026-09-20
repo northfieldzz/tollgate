@@ -9,15 +9,15 @@ services:
     env_file:
       - .env
     environment:
-      PORT: "8080"
+      PORT: 8080
       DYNAMODB_ENDPOINT: ${DYNAMODB_ENDPOINT:-http://dynamodb:8000}
       AWS_REGION: ${AWS_REGION:-ap-northeast-1}
       TABLE_NAME: ${TABLE_NAME:-TollgateAPIKeys}
       PROXY_ROUTES: ${PROXY_ROUTES:-}
       ROUTES_CONFIG_FILE: ${ROUTES_CONFIG_FILE:-}
       FORWARD_TARGET_URL: ${FORWARD_TARGET_URL:-}
-      OPENAPI_PATH: ${OPENAPI_PATH:-}
-      DOCS_PATH: ${DOCS_PATH:-}
+      DOCS_PATH: ${DOCS_PATH:-/docs}
+      OPENAPI_PATH: ${OPENAPI_PATH:-/openapi}
       KEY_CACHE_TTL: ${KEY_CACHE_TTL:-10}
     depends_on:
       dynamodb:
@@ -51,9 +51,9 @@ services:
   dynamodb-init:
     image: amazon/aws-cli:latest
     environment:
-      - AWS_ACCESS_KEY_ID=dummy
-      - AWS_SECRET_ACCESS_KEY=dummy
-      - AWS_DEFAULT_REGION=ap-northeast-1
+      AWS_ACCESS_KEY_ID: dummy
+      AWS_SECRET_ACCESS_KEY: dummy
+      AWS_DEFAULT_REGION: ap-northeast-1
     entrypoint: [ "/bin/sh", "-c" ]
     command:
       - |
