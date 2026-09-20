@@ -6,6 +6,7 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/northfieldzz/tollgate/internal/domain/repository"
+	"log"
 )
 
 type HealthOutput struct {
@@ -33,7 +34,8 @@ func RegisterHealthHandler(api huma.API, repo repository.KeyRepository) {
 		if err := repo.Ping(ctx); err != nil {
 			resp.Body.Status = "degraded"
 			resp.Body.Database = "disconnected"
-			return resp, huma.Error503ServiceUnavailable("DynamoDB 疎通不可", err)
+			log.Printf("[ERROR] %s: %v", "DynamoDB 疎通不可", err)
+			return resp, huma.Error503ServiceUnavailable("DynamoDB 疎通不可")
 		}
 		resp.Body.Database = "connected"
 		return resp, nil
@@ -53,7 +55,8 @@ func RegisterHealthHandler(api huma.API, repo repository.KeyRepository) {
 		if err := repo.Ping(ctx); err != nil {
 			resp.Body.Status = "not_ready"
 			resp.Body.Database = "disconnected"
-			return resp, huma.Error503ServiceUnavailable("DynamoDB 未接続", err)
+			log.Printf("[ERROR] %s: %v", "DynamoDB 未接続", err)
+			return resp, huma.Error503ServiceUnavailable("DynamoDB 未接続")
 		}
 		resp.Body.Status = "ready"
 		resp.Body.Database = "connected"

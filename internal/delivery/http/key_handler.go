@@ -8,6 +8,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/northfieldzz/tollgate/internal/domain/entity"
 	"github.com/northfieldzz/tollgate/internal/usecase"
+	"log"
 )
 
 type CreateKeyRequest struct {
@@ -71,7 +72,8 @@ func RegisterKeyHandlers(api huma.API, u *usecase.KeyUsecase) {
 			if errors.Is(err, entity.ErrTenantOrServiceRequired) {
 				return nil, huma.Error400BadRequest("無効な入力パラメータ: "+err.Error(), err)
 			}
-			return nil, huma.Error500InternalServerError("キー発行失敗", err)
+			log.Printf("[ERROR] %s: %v", "キー発行失敗", err)
+			return nil, huma.Error500InternalServerError("キー発行失敗")
 		}
 		return &CreateKeyResponse{Body: *out}, nil
 	})
@@ -87,7 +89,8 @@ func RegisterKeyHandlers(api huma.API, u *usecase.KeyUsecase) {
 	}, func(ctx context.Context, input *ListKeysRequest) (*ListKeysResponse, error) {
 		keys, err := u.ListKeys(ctx, input.TenantID)
 		if err != nil {
-			return nil, huma.Error500InternalServerError("キー一覧取得失敗", err)
+			log.Printf("[ERROR] %s: %v", "キー一覧取得失敗", err)
+			return nil, huma.Error500InternalServerError("キー一覧取得失敗")
 		}
 		if keys == nil {
 			keys = []*entity.APIKey{}
@@ -108,7 +111,8 @@ func RegisterKeyHandlers(api huma.API, u *usecase.KeyUsecase) {
 	}, func(ctx context.Context, input *KeyIDParam) (*GetKeyResponse, error) {
 		key, err := u.GetKey(ctx, input.KeyID)
 		if err != nil {
-			return nil, huma.Error404NotFound("キーが見つかりません", err)
+			log.Printf("[ERROR] %s: %v", "キーが見つかりません", err)
+			return nil, huma.Error404NotFound("キーが見つかりません")
 		}
 		return &GetKeyResponse{Body: *key}, nil
 	})
@@ -124,7 +128,8 @@ func RegisterKeyHandlers(api huma.API, u *usecase.KeyUsecase) {
 	}, func(ctx context.Context, input *UpdateKeyRequest) (*GetKeyResponse, error) {
 		key, err := u.UpdateKey(ctx, input.KeyID, input.Body)
 		if err != nil {
-			return nil, huma.Error500InternalServerError("設定更新失敗", err)
+			log.Printf("[ERROR] %s: %v", "設定更新失敗", err)
+			return nil, huma.Error500InternalServerError("設定更新失敗")
 		}
 		return &GetKeyResponse{Body: *key}, nil
 	})
@@ -140,7 +145,8 @@ func RegisterKeyHandlers(api huma.API, u *usecase.KeyUsecase) {
 	}, func(ctx context.Context, input *KeyIDParam) (*GetKeyResponse, error) {
 		key, err := u.SuspendKey(ctx, input.KeyID)
 		if err != nil {
-			return nil, huma.Error500InternalServerError("一時停止失敗", err)
+			log.Printf("[ERROR] %s: %v", "一時停止失敗", err)
+			return nil, huma.Error500InternalServerError("一時停止失敗")
 		}
 		return &GetKeyResponse{Body: *key}, nil
 	})
@@ -156,7 +162,8 @@ func RegisterKeyHandlers(api huma.API, u *usecase.KeyUsecase) {
 	}, func(ctx context.Context, input *KeyIDParam) (*GetKeyResponse, error) {
 		key, err := u.ResumeKey(ctx, input.KeyID)
 		if err != nil {
-			return nil, huma.Error500InternalServerError("再開失敗", err)
+			log.Printf("[ERROR] %s: %v", "再開失敗", err)
+			return nil, huma.Error500InternalServerError("再開失敗")
 		}
 		return &GetKeyResponse{Body: *key}, nil
 	})
@@ -172,7 +179,8 @@ func RegisterKeyHandlers(api huma.API, u *usecase.KeyUsecase) {
 	}, func(ctx context.Context, input *RotateKeyRequest) (*RotateKeyResponse, error) {
 		out, err := u.RotateKey(ctx, input.KeyID, input.Body)
 		if err != nil {
-			return nil, huma.Error500InternalServerError("ローテーション失敗", err)
+			log.Printf("[ERROR] %s: %v", "ローテーション失敗", err)
+			return nil, huma.Error500InternalServerError("ローテーション失敗")
 		}
 		return &RotateKeyResponse{Body: *out}, nil
 	})
@@ -187,7 +195,8 @@ func RegisterKeyHandlers(api huma.API, u *usecase.KeyUsecase) {
 		Tags:        []string{"Keys"},
 	}, func(ctx context.Context, input *KeyIDParam) (*DeleteKeyResponse, error) {
 		if err := u.DeleteKey(ctx, input.KeyID); err != nil {
-			return nil, huma.Error500InternalServerError("キー削除失敗", err)
+			log.Printf("[ERROR] %s: %v", "キー削除失敗", err)
+			return nil, huma.Error500InternalServerError("キー削除失敗")
 		}
 		resp := &DeleteKeyResponse{}
 		resp.Body.Message = "key deleted successfully"
