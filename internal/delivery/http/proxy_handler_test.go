@@ -2,8 +2,11 @@ package http
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -191,4 +194,75 @@ func TestMultiTargetProxy_NotFoundWhenNoRouteMatches(t *testing.T) {
 	if rec.Code != http.StatusNotFound {
 		t.Errorf("expected status %d for unmapped route, got: %d", http.StatusNotFound, rec.Code)
 	}
+}
+
+func TestCreateSingleProxy(t *testing.T) {
+	targetURL, _ := url.Parse("http://backend.local:8080")
+	prefix := "/api/v1"
+
+	t.Run("basic properties", func(t *testing.T) {
+		proxy := createSingleProxy(targetURL, prefix, false)
+
+		if proxy.FlushInterval != -1 {
+			t.Errorf("expected FlushInterval -1, got %v", proxy.FlushInterval)
+		}
+		if proxy.Transport != gatewayTransport {
+			t.Errorf("expected Transport to be gatewayTransport, got %v", proxy.Transport)
+		}
+	})
+
+	t.Run("Director strips prefix", func(t *testing.T) {
+		proxy := createSingleProxy(targetURL, prefix, true)
+		req := httptest.NewRequest("GET", "/api/v1/users", nil)
+		proxy.Director(req)
+
+		if req.Host != targetURL.Host {
+			t.Errorf("expected Host %q, got %q", targetURL.Host, req.Host)
+		}
+		if req.URL.Path != "/users" {
+			t.Errorf("expected Path \"/users\", got %q", req.URL.Path)
+		}
+	})
+
+	t.Run("Director does not strip prefix if not requested", func(t *testing.T) {
+		proxy := createSingleProxy(targetURL, prefix, false)
+		req := httptest.NewRequest("GET", "/api/v1/users", nil)
+		proxy.Director(req)
+
+		if req.URL.Path != "/api/v1/users" {
+			t.Errorf("expected Path \"/api/v1/users\", got %q", req.URL.Path)
+		}
+	})
+
+	t.Run("Director does not strip prefix if path doesn't match", func(t *testing.T) {
+		proxy := createSingleProxy(targetURL, prefix, true)
+		req := httptest.NewRequest("GET", "/other/users", nil)
+		proxy.Director(req)
+
+		if req.URL.Path != "/other/users" {
+			t.Errorf("expected Path \"/other/users\", got %q", req.URL.Path)
+		}
+	})
+
+	t.Run("ErrorHandler returns 502 with JSON", func(t *testing.T) {
+		proxy := createSingleProxy(targetURL, prefix, false)
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest("GET", "/api/v1/users", nil)
+
+		proxy.ErrorHandler(rec, req, fmt.Errorf("simulated error"))
+
+		if rec.Code != http.StatusBadGateway {
+			t.Errorf("expected status 502, got %d", rec.Code)
+		}
+
+		contentType := rec.Header().Get("Content-Type")
+		if contentType != "application/json; charset=utf-8" {
+			t.Errorf("expected content type json, got %q", contentType)
+		}
+
+		body := rec.Body.String()
+		if !strings.Contains(body, "bad_gateway") {
+			t.Errorf("expected body to contain bad_gateway, got %q", body)
+		}
+	})
 }
