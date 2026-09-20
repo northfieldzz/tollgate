@@ -34,10 +34,12 @@ func ExtractKeyPrefix(rawKey string) string {
 	return rawKey[:KeyPrefixLength]
 }
 
+var cryptoRandRead = rand.Read
+
 // GenerateRawKey は安全な暗号乱数を用いて "tlge-live-<32文字hex>" 形式の平文キーを生成する
 func GenerateRawKey() (string, error) {
 	bytes := make([]byte, 16)
-	if _, err := rand.Read(bytes); err != nil {
+	if _, err := cryptoRandRead(bytes); err != nil {
 		return "", fmt.Errorf("crypto rand read error: %w", err)
 	}
 	return fmt.Sprintf("%s%s", RawKeyPrefix, hex.EncodeToString(bytes)), nil
