@@ -192,3 +192,67 @@ func TestMultiTargetProxy_NotFoundWhenNoRouteMatches(t *testing.T) {
 		t.Errorf("expected status %d for unmapped route, got: %d", http.StatusNotFound, rec.Code)
 	}
 }
+
+func TestMultiTargetProxy_matchRoute(t *testing.T) {
+	routes := []*RouteConfig{
+		{Prefix: "/api", Target: "http://dummy-api"},
+		{Prefix: "/api/v1", Target: "http://dummy-api-v1"},
+		{Prefix: "/auth", Target: "http://dummy-auth"},
+	}
+
+	proxy, _ := setupTestMultiProxy(t, routes, nil)
+
+	tests := []struct {
+		name           string
+		path           string
+		expectedPrefix string // 期待される Prefix (マッチしない場合は空文字列)
+	}{
+		{
+			name:           "Exact match",
+			path:           "/api",
+			expectedPrefix: "/api",
+		},
+		{
+			name:           "Prefix match with slash",
+			path:           "/api/users",
+			expectedPrefix: "/api",
+		},
+		{
+			name:           "Longest prefix match",
+			path:           "/api/v1/users",
+			expectedPrefix: "/api/v1",
+		},
+		{
+			name:           "No match for overlapping name without slash",
+			path:           "/api-docs",
+			expectedPrefix: "", // マッチしない
+		},
+		{
+			name:           "No match for completely unknown paths",
+			path:           "/unknown/service",
+			expectedPrefix: "", // マッチしない
+		},
+		{
+			name:           "Exact match for another route",
+			path:           "/auth",
+			expectedPrefix: "/auth",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			route := proxy.matchRoute(tc.path)
+			if tc.expectedPrefix == "" {
+				if route != nil {
+					t.Errorf("expected no match, but got route with prefix %q", route.config.Prefix)
+				}
+			} else {
+				if route == nil {
+					t.Errorf("expected route with prefix %q, but got nil", tc.expectedPrefix)
+				} else if route.config.Prefix != tc.expectedPrefix {
+					t.Errorf("expected route with prefix %q, but got %q", tc.expectedPrefix, route.config.Prefix)
+				}
+			}
+		})
+	}
+}
