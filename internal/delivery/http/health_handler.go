@@ -18,15 +18,7 @@ type HealthOutput struct {
 }
 
 func RegisterHealthHandler(api huma.API, repo repository.KeyRepository) {
-	// 1. GET /health (総合ヘルスチェック)
-	huma.Register(api, huma.Operation{
-		OperationID: "healthCheck",
-		Method:      http.MethodGet,
-		Path:        "/health",
-		Summary:     "総合ヘルスチェック",
-		Description: "プロセスの生存および DynamoDB への疎通状態を総合的に確認します。",
-		Tags:        []string{"System"},
-	}, func(ctx context.Context, input *struct{}) (*HealthOutput, error) {
+	healthHandler := func(ctx context.Context, input *struct{}) (*HealthOutput, error) {
 		resp := &HealthOutput{}
 		resp.Body.Status = "ok"
 		resp.Body.Service = "api_manager"
@@ -39,7 +31,26 @@ func RegisterHealthHandler(api huma.API, repo repository.KeyRepository) {
 		}
 		resp.Body.Database = "connected"
 		return resp, nil
-	})
+	}
+
+	// 1. GET /health & /healthz (総合ヘルスチェック)
+	huma.Register(api, huma.Operation{
+		OperationID: "healthCheck",
+		Method:      http.MethodGet,
+		Path:        "/health",
+		Summary:     "総合ヘルスチェック",
+		Description: "プロセスの生存および DynamoDB への疎通状態を総合的に確認します。",
+		Tags:        []string{"System"},
+	}, healthHandler)
+
+	huma.Register(api, huma.Operation{
+		OperationID: "healthCheckHealthz",
+		Method:      http.MethodGet,
+		Path:        "/healthz",
+		Summary:     "総合ヘルスチェック (/healthz)",
+		Description: "Kubernetes / クラウド標準の総合ヘルスチェックエンドポイントです。",
+		Tags:        []string{"System"},
+	}, healthHandler)
 
 	liveHandler := func(ctx context.Context, input *struct{}) (*HealthOutput, error) {
 		resp := &HealthOutput{}
