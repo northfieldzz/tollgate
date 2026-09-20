@@ -109,19 +109,29 @@ func TestHealthHandler_Readiness(t *testing.T) {
 		}
 	})
 
-	t.Run("OK - /readyz", func(t *testing.T) {
+	t.Run("OK - /healthz", func(t *testing.T) {
 		repo.pingErr = nil
-		resp := api.Get("/readyz")
+		resp := api.Get("/healthz")
 		if resp.Code != http.StatusOK {
 			t.Errorf("expected 200 OK, got %d", resp.Code)
 		}
 	})
 
-	t.Run("ServiceUnavailable - /readyz", func(t *testing.T) {
+	t.Run("ServiceUnavailable - /healthz", func(t *testing.T) {
 		repo.pingErr = errors.New("db down")
-		resp := api.Get("/readyz")
+		resp := api.Get("/healthz")
 		if resp.Code != http.StatusServiceUnavailable {
 			t.Errorf("expected 503 Service Unavailable, got %d", resp.Code)
 		}
 	})
+}
+
+func TestMetricsHandler(t *testing.T) {
+	_, api := humatest.New(t)
+	RegisterMetricsHandler(api)
+
+	resp := api.Get("/metrics")
+	if resp.Code != http.StatusOK {
+		t.Errorf("expected 200 OK from /metrics, got %d", resp.Code)
+	}
 }

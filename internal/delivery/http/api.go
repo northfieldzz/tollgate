@@ -10,16 +10,12 @@ import (
 	"github.com/northfieldzz/tollgate/internal/config"
 	"github.com/northfieldzz/tollgate/internal/domain/repository"
 	"github.com/northfieldzz/tollgate/internal/usecase"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 func NewRouter(cfg *config.Config, keyUsecase *usecase.KeyUsecase, verifyUsecase *usecase.VerifyUsecase, repo repository.KeyRepository, proxyHandler http.Handler) http.Handler {
 	mux := http.NewServeMux()
 
-	// 1. Prometheus メトリクスエンドポイント (/metrics)
-	mux.Handle("/metrics", promhttp.Handler())
-
-	// 2. Huma v2 OpenAPI 3.1 設定
+	// 1. Huma v2 OpenAPI 3.1 設定
 	humaConfig := huma.DefaultConfig("Tollgate", "1.0.0")
 	humaConfig.DocsPath = cfg.DocsPath // 未指定(空文字)の場合はドキュメント UI が無効化される
 
@@ -44,6 +40,7 @@ func NewRouter(cfg *config.Config, keyUsecase *usecase.KeyUsecase, verifyUsecase
 
 	// 3. 各エンドポイントの登録
 	RegisterHealthHandler(api, repo)
+	RegisterMetricsHandler(api)
 	RegisterKeyHandlers(api, keyUsecase)
 	RegisterVerifyHandler(api, verifyUsecase)
 
