@@ -38,26 +38,3 @@ func TestHashKey(t *testing.T) {
 		t.Errorf("expected sha256 hex length 64, got %d", len(h1))
 	}
 }
-
-func TestMatchScope(t *testing.T) {
-	cases := []struct {
-		required string
-		allowed  []string
-		expected bool
-	}{
-		{"ai:workflows:execute", []string{"ai:workflows:execute"}, true},
-		{"ai:workflows:execute", []string{"ai:*"}, true},
-		{"ai:workflows:execute", []string{"*"}, true},
-		{"ai:workflows:execute", []string{"mcp:tools:execute"}, false},
-		{"llm:chat:completions", []string{"llm:*", "ai:*"}, true},
-		{"llm:chat:completions", []string{"mcp:*"}, false},
-		{"", []string{"mcp:tools:execute"}, true}, // 要求なしは通す
-	}
-
-	for _, tc := range cases {
-		got := matchScope(tc.required, tc.allowed)
-		if got != tc.expected {
-			t.Errorf("matchScope(%q, %v) = %v; want %v", tc.required, tc.allowed, got, tc.expected)
-		}
-	}
-}

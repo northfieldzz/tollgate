@@ -70,6 +70,48 @@ func (m *MockKeyRepository) Ping(ctx context.Context) error {
 	return nil
 }
 
+func TestMatchScope(t *testing.T) {
+	cases := []struct {
+		name     string
+		required string
+		allowed  []string
+		expected bool
+	}{
+		// Existing cases
+		{"Exact match", "ai:workflows:execute", []string{"ai:workflows:execute"}, true},
+		{"Prefix match", "ai:workflows:execute", []string{"ai:*"}, true},
+		{"Global wildcard", "ai:workflows:execute", []string{"*"}, true},
+		{"No match", "ai:workflows:execute", []string{"mcp:tools:execute"}, false},
+		{"Match one of many", "llm:chat:completions", []string{"llm:*", "ai:*"}, true},
+		{"Mismatch against many", "llm:chat:completions", []string{"mcp:*"}, false},
+		{"Empty required", "", []string{"mcp:tools:execute"}, true}, // 要求なしは通す
+
+		// New edge cases
+		{"Exact prefix match", "ai", []string{"ai:*"}, true},
+		{"Prefix substring mismatch", "air", []string{"ai:*"}, false},
+		{"Prefix segment mismatch", "air:workflows", []string{"ai:*"}, false},
+		{"Required shorter than prefix", "a", []string{"ai:*"}, false},
+		{"Allowed missing colon before asterisk", "ai:workflows", []string{"ai*"}, false},
+		{"Allowed literal asterisk match", "ai*", []string{"ai*"}, true},
+		{"Multiple colons prefix match", "a:b:c:d", []string{"a:b:*"}, true},
+		{"Empty allowed list", "ai:workflows:execute", []string{}, false},
+		{"Nil allowed list", "ai:workflows:execute", nil, false},
+		{"Root prefix match", "a", []string{":*"}, false},
+		{"Just colon asterisk", ":*", []string{":*"}, true},
+		{"Empty allowed string in list", "ai", []string{""}, false},
+		{"Empty required with empty allowed", "", []string{""}, true},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := matchScope(tc.required, tc.allowed)
+			if got != tc.expected {
+				t.Errorf("matchScope(%q, %v) = %v; want %v", tc.required, tc.allowed, got, tc.expected)
+			}
+		})
+	}
+}
+
 func TestVerifyUsecase_VerifyKey(t *testing.T) {
 	limiter := ratelimit.NewSlidingWindowLimiter(time.Minute)
 	defer limiter.Stop()
