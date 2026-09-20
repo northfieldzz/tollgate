@@ -69,10 +69,10 @@ flowchart TD
         DDB[("Amazon DynamoDB<br/>• TollgateAPIKeys<br/>• GSI_TenantKeys")]
     end
 
-    subgraph Downstream ["Downstream Services"]
-        LLM["LLM Gateway<br/>(:8000 /llm)"]
-        PORTICO["Portico MCP Gateway<br/>(:8001 /mcp)"]
-        AI_ENG["AI Engine<br/>(:8000 /ai)"]
+    subgraph Downstream ["Downstream Services (任意のバックエンド群)"]
+        SVC_A["Service A<br/>(例: Prefix /service-a 転送先)"]
+        SVC_B["Service B<br/>(例: Prefix /service-b 転送先)"]
+        SVC_N["Any Microservices...<br/>(PROXY_ROUTES 定義先)"]
     end
 
     %% Client flows
@@ -88,9 +88,9 @@ flowchart TD
     PROXY --> HEADER_INJECT
 
     %% Forwarding
-    HEADER_INJECT -->|"Prefix: /llm (X-Tenant-ID 付与)"| LLM
-    HEADER_INJECT -->|"Prefix: /mcp (X-Tenant-ID 付与)"| PORTICO
-    HEADER_INJECT -->|"Prefix: /ai (X-Tenant-ID 付与)"| AI_ENG
+    HEADER_INJECT -->|"Prefix A マッチ (X-Tenant-ID 注入 / StripPrefix)"| SVC_A
+    HEADER_INJECT -->|"Prefix B マッチ (X-Tenant-ID 注入 / StripPrefix)"| SVC_B
+    HEADER_INJECT -->|"動的ルーティング転送"| SVC_N
 
     KEY_MGMT --> DDB
     HEALTH -.->|"Ping"| DDB
