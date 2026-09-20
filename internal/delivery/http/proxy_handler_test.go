@@ -192,3 +192,38 @@ func TestMultiTargetProxy_NotFoundWhenNoRouteMatches(t *testing.T) {
 		t.Errorf("expected status %d for unmapped route, got: %d", http.StatusNotFound, rec.Code)
 	}
 }
+
+func TestWriteJSONError(t *testing.T) {
+	rec := httptest.NewRecorder()
+	writeJSONError(rec, http.StatusBadRequest, "bad_request", "Invalid input data", "validation_failed")
+
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("expected status %d, got %d", http.StatusBadRequest, rec.Code)
+	}
+
+	contentType := rec.Header().Get("Content-Type")
+	if contentType != "application/json; charset=utf-8" {
+		t.Errorf("expected content-type 'application/json; charset=utf-8', got %q", contentType)
+	}
+
+	expectedJSON := `{"error":"bad_request","message":"Invalid input data","reason":"validation_failed"}
+`
+	if rec.Body.String() != expectedJSON {
+		t.Errorf("expected body %q, got %q", expectedJSON, rec.Body.String())
+	}
+}
+
+func TestWriteJSONError_Omitempty(t *testing.T) {
+	rec := httptest.NewRecorder()
+	writeJSONError(rec, http.StatusInternalServerError, "internal_error", "An internal error occurred", "")
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Errorf("expected status %d, got %d", http.StatusInternalServerError, rec.Code)
+	}
+
+	expectedJSON := `{"error":"internal_error","message":"An internal error occurred"}
+`
+	if rec.Body.String() != expectedJSON {
+		t.Errorf("expected body %q, got %q", expectedJSON, rec.Body.String())
+	}
+}
