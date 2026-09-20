@@ -37,6 +37,11 @@ func TestHashKey(t *testing.T) {
 	if len(h1) != 64 {
 		t.Errorf("expected sha256 hex length 64, got %d", len(h1))
 	}
+
+	expected := "ec8965781ec3427aaf036539ecffda4d1e6ecc4e7cb6bcfd6b8efa524f8e8151"
+	if h1 != expected {
+		t.Errorf("expected hash %s, got %s", expected, h1)
+	}
 }
 
 func TestMatchScope(t *testing.T) {
