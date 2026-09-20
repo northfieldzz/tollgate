@@ -44,7 +44,7 @@ func (m *MockKeyRepository) UpdateKeySettings(ctx context.Context, keyHash strin
 	return nil, nil
 }
 
-func (m *MockKeyRepository) RotateKey(ctx context.Context, oldKeyHash, newKeyHash, newKeyPrefix string, gracePeriodExpiresAt time.Time) (*entity.APIKey, error) {
+func (m *MockKeyRepository) RotateKey(ctx context.Context, params entity.RotateKeyParams) (*entity.APIKey, error) {
 	return nil, nil
 }
 

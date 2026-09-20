@@ -185,7 +185,12 @@ func (u *KeyUsecase) RotateKey(ctx context.Context, keyID string, input entity.R
 	}
 	graceExpires := time.Now().UTC().Add(time.Duration(hours) * time.Hour)
 
-	_, err = u.repo.RotateKey(ctx, oldKeyHash, newKeyHash, newPrefix, graceExpires)
+	_, err = u.repo.RotateKey(ctx, entity.RotateKeyParams{
+		OldKeyHash:           oldKeyHash,
+		NewKeyHash:           newKeyHash,
+		NewKeyPrefix:         newPrefix,
+		GracePeriodExpiresAt: graceExpires,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to rotate key: %w", err)
 	}

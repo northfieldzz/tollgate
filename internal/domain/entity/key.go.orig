@@ -78,14 +78,6 @@ type RotateKeyInput struct {
 	GracePeriodHours int `json:"grace_period_hours,omitempty" doc:"旧キーが引き続き有効となる猶予期間 (時間, デフォルト: 24)" default:"24" example:"24"`
 }
 
-// RotateKeyParams はリポジトリ層でローテーションを実行する際のパラメータ
-type RotateKeyParams struct {
-	OldKeyHash           string
-	NewKeyHash           string
-	NewKeyPrefix         string
-	GracePeriodExpiresAt time.Time
-}
-
 // RotateKeyOutput はローテーション結果 (新しい平文キーを返却)
 type RotateKeyOutput struct {
 	KeyID                string    `json:"key_id"`

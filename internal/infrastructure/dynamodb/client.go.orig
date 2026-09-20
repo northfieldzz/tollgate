@@ -195,9 +195,9 @@ func (r *DynamoDBRepository) UpdateKeySettings(ctx context.Context, keyHash stri
 	return &updated, nil
 }
 
-func (r *DynamoDBRepository) RotateKey(ctx context.Context, params entity.RotateKeyParams) (*entity.APIKey, error) {
+func (r *DynamoDBRepository) RotateKey(ctx context.Context, oldKeyHash, newKeyHash, newKeyPrefix string, gracePeriodExpiresAt time.Time) (*entity.APIKey, error) {
 	// 1. 旧キーを取得
-	oldKey, err := r.GetKeyByHash(ctx, params.OldKeyHash)
+	oldKey, err := r.GetKeyByHash(ctx, oldKeyHash)
 	if err != nil || oldKey == nil {
 		return nil, fmt.Errorf("old key not found")
 	}
@@ -206,7 +206,7 @@ func (r *DynamoDBRepository) RotateKey(ctx context.Context, params entity.Rotate
 	nowStr := now.Format(time.RFC3339)
 
 	// 2. 旧キーのステータスを rotating に変更し、猶予期限を設定
-	oldKeyPK := "KEY#" + params.OldKeyHash
+	oldKeyPK := "KEY#" + oldKeyHash
 	_, err = r.client.UpdateItem(ctx, &dynamodb.UpdateItemInput{
 		TableName: aws.String(r.tableName),
 		Key: map[string]types.AttributeValue{
@@ -221,8 +221,8 @@ func (r *DynamoDBRepository) RotateKey(ctx context.Context, params entity.Rotate
 			":now": &types.AttributeValueMemberS{Value: nowStr},
 			":rm": &types.AttributeValueMemberM{
 				Value: map[string]types.AttributeValue{
-					"old_key_hash":            &types.AttributeValueMemberS{Value: params.OldKeyHash},
-					"grace_period_expires_at": &types.AttributeValueMemberS{Value: params.GracePeriodExpiresAt.Format(time.RFC3339)},
+					"old_key_hash":            &types.AttributeValueMemberS{Value: oldKeyHash},
+					"grace_period_expires_at": &types.AttributeValueMemberS{Value: gracePeriodExpiresAt.Format(time.RFC3339)},
 				},
 			},
 		},
@@ -233,8 +233,8 @@ func (r *DynamoDBRepository) RotateKey(ctx context.Context, params entity.Rotate
 
 	// 3. 新キーを同じ KeyID で保存 (PKは新ハッシュ)
 	newKey := *oldKey
-	newKey.PK = "KEY#" + params.NewKeyHash
-	newKey.KeyPrefix = params.NewKeyPrefix
+	newKey.PK = "KEY#" + newKeyHash
+	newKey.KeyPrefix = newKeyPrefix
 	newKey.Status = entity.StatusActive
 	newKey.IsActive = true
 	newKey.Rotation = nil
