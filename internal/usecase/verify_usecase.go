@@ -11,16 +11,36 @@ import (
 	"github.com/northfieldzz/tollgate/internal/infrastructure/ratelimit"
 )
 
+type updateLastUsedJob struct {
+	keyHash string
+	now     time.Time
+}
+
 type VerifyUsecase struct {
 	repo        repository.KeyRepository
 	limiter     *ratelimit.SlidingWindowLimiter
 	lastUsedMap sync.Map // keyHash -> time.Time (1分以内の重複更新をスロットリング)
+	updateChan  chan updateLastUsedJob
 }
 
 func NewVerifyUsecase(repo repository.KeyRepository, limiter *ratelimit.SlidingWindowLimiter) *VerifyUsecase {
-	return &VerifyUsecase{
-		repo:    repo,
-		limiter: limiter,
+	u := &VerifyUsecase{
+		repo:       repo,
+		limiter:    limiter,
+		updateChan: make(chan updateLastUsedJob, 4096),
+	}
+
+	// ワーカプールを起動 (例えば10並列)
+	for i := 0; i < 10; i++ {
+		go u.lastUsedWorker()
+	}
+
+	return u
+}
+
+func (u *VerifyUsecase) lastUsedWorker() {
+	for job := range u.updateChan {
+		_ = u.repo.UpdateLastUsedAt(context.Background(), job.keyHash, job.now)
 	}
 }
 
@@ -201,7 +221,10 @@ func (u *VerifyUsecase) recordLastUsed(keyHash string) {
 	}
 	u.lastUsedMap.Store(keyHash, now)
 
-	go func() {
-		_ = u.repo.UpdateLastUsedAt(context.Background(), keyHash, now)
-	}()
+	select {
+	case u.updateChan <- updateLastUsedJob{keyHash: keyHash, now: now}:
+		// 成功
+	default:
+		// バッファフル時はスキップ（Analyticsは重要度が低く、Goroutineのスパイクを防ぐため）
+	}
 }
