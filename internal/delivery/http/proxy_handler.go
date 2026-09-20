@@ -284,6 +284,12 @@ func (m *MultiTargetProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 6. 下流バックエンドにコンテキスト情報を付与
+	// クライアントからのヘッダースプーフィングを防ぐため、事前に削除
+	r.Header.Del("X-Tenant-ID")
+	r.Header.Del("X-Key-ID")
+	r.Header.Del("X-Key-Prefix")
+	r.Header.Del("X-Service-ID")
+
 	r.Header.Set("X-Tenant-ID", verifyOut.TenantID)
 	r.Header.Set("X-Key-ID", verifyOut.KeyID)
 	r.Header.Set("X-Key-Prefix", verifyOut.KeyPrefix)
