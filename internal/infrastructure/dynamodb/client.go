@@ -67,27 +67,32 @@ func (r *DynamoDBRepository) GetKeyByHash(ctx context.Context, keyHash string) (
 }
 
 func (r *DynamoDBRepository) GetKeyByID(ctx context.Context, keyID string) (*entity.APIKey, error) {
-	// Scan with FilterExpression for key_id
-	out, err := r.client.Scan(ctx, &dynamodb.ScanInput{
-		TableName:        aws.String(r.tableName),
-		FilterExpression: aws.String("key_id = :kid"),
-		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":kid": &types.AttributeValueMemberS{Value: keyID},
-		},
-		Limit: aws.Int32(1),
-	})
-	if err != nil {
-		return nil, fmt.Errorf("scan key_id error: %w", err)
+	var lastKey map[string]types.AttributeValue
+	for {
+		out, err := r.client.Scan(ctx, &dynamodb.ScanInput{
+			TableName:        aws.String(r.tableName),
+			FilterExpression: aws.String("key_id = :kid"),
+			ExpressionAttributeValues: map[string]types.AttributeValue{
+				":kid": &types.AttributeValueMemberS{Value: keyID},
+			},
+			ExclusiveStartKey: lastKey,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("scan key_id error: %w", err)
+		}
+		if len(out.Items) > 0 {
+			var key entity.APIKey
+			if err := attributevalue.UnmarshalMap(out.Items[0], &key); err != nil {
+				return nil, fmt.Errorf("unmarshal key error: %w", err)
+			}
+			return &key, nil
+		}
+		if len(out.LastEvaluatedKey) == 0 {
+			break
+		}
+		lastKey = out.LastEvaluatedKey
 	}
-	if len(out.Items) == 0 {
-		return nil, nil
-	}
-
-	var key entity.APIKey
-	if err := attributevalue.UnmarshalMap(out.Items[0], &key); err != nil {
-		return nil, fmt.Errorf("unmarshal key error: %w", err)
-	}
-	return &key, nil
+	return nil, nil
 }
 
 func (r *DynamoDBRepository) ListKeysByTenant(ctx context.Context, tenantID string) ([]*entity.APIKey, error) {
