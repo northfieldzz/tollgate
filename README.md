@@ -18,7 +18,7 @@
   - CIDR による IP アドレスホワイトリスト検証
 - **オブザーバビリティ**:
   - Prometheus メトリクスエンドポイント (`/metrics`)
-  - Liveness / Readiness ヘルスチェック (`/health/live`, `/health/ready`, `/livez`, `/readyz`)
+  - Liveness / Readiness / 総合ヘルスチェック (`/healthz`, `/livez`, `/readyz`)
   - OpenAPI 3.1 スキーマ提供 (`/openapi.json`)
 
 ---
@@ -83,7 +83,7 @@ cp .env.example .env
 DynamoDB Local と初期テーブル作成コンテナ、DynamoDB Admin、Tollgate を一括起動する。
 
 ```bash
-nerdctl compose -f compose.yaml -f dynamodb.compose.yaml up -d --build
+nerdctl compose --profile database up -d --build
 ```
 
 - **Tollgate API / Gateway**: `http://localhost:8002`
@@ -92,7 +92,7 @@ nerdctl compose -f compose.yaml -f dynamodb.compose.yaml up -d --build
 ### 停止
 
 ```bash
-nerdctl compose -f compose.yaml -f dynamodb.compose.yaml down
+nerdctl compose --profile database down
 ```
 
 ---
@@ -174,9 +174,9 @@ JSON 形式で各サービスのルーティングを定義する。環境変数
 
 | メソッド | パス | 説明 |
 |---|---|---|
-| `GET` | `/health` | 総合ヘルスチェック |
-| `GET` | `/health/live`, `/livez` | Liveness ヘルスチェック (K8s プローブ対応) |
-| `GET` | `/health/ready`, `/readyz` | Readiness ヘルスチェック (DynamoDB 接続確認, K8s プローブ対応) |
+| `GET` | `/healthz` | 総合ヘルスチェック (プロセス生存 + DynamoDB 疎通確認) |
+| `GET` | `/livez` | Liveness ヘルスチェック (プロセスの死活監視, K8s プローブ対応) |
+| `GET` | `/readyz` | Readiness ヘルスチェック (DynamoDB 接続確認, K8s プローブ対応) |
 | `GET` | `/metrics` | Prometheus メトリクス |
 | `GET` | `OPENAPI_PATH` | OpenAPI 3.1 スキーマ (JSON, 例: `/openapi.json`, 環境変数で指定時のみ有効) |
 | `GET` | `DOCS_PATH` | Scalar ドキュメント UI (例: `/docs`, 環境変数で指定時のみ有効) |

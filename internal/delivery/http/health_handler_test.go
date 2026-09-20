@@ -48,67 +48,6 @@ func TestHealthHandler_HealthCheck(t *testing.T) {
 	repo := &mockHealthRepo{}
 	RegisterHealthHandler(api, repo)
 
-	t.Run("OK", func(t *testing.T) {
-		repo.pingErr = nil
-		resp := api.Get("/health")
-		if resp.Code != http.StatusOK {
-			t.Errorf("expected 200 OK, got %d", resp.Code)
-		}
-	})
-
-	t.Run("ServiceUnavailable", func(t *testing.T) {
-		repo.pingErr = errors.New("db down")
-		resp := api.Get("/health")
-		if resp.Code != http.StatusServiceUnavailable {
-			t.Errorf("expected 503 Service Unavailable, got %d", resp.Code)
-		}
-	})
-}
-
-func TestHealthHandler_Liveness(t *testing.T) {
-	_, api := humatest.New(t)
-	repo := &mockHealthRepo{}
-	RegisterHealthHandler(api, repo)
-
-	// Liveness is not dependent on repo, but we can set it to error to make sure it doesn't fail
-	repo.pingErr = errors.New("db down")
-
-	t.Run("/health/live", func(t *testing.T) {
-		resp := api.Get("/health/live")
-		if resp.Code != http.StatusOK {
-			t.Errorf("expected 200 OK, got %d", resp.Code)
-		}
-	})
-
-	t.Run("/livez", func(t *testing.T) {
-		resp := api.Get("/livez")
-		if resp.Code != http.StatusOK {
-			t.Errorf("expected 200 OK, got %d", resp.Code)
-		}
-	})
-}
-
-func TestHealthHandler_Readiness(t *testing.T) {
-	_, api := humatest.New(t)
-	repo := &mockHealthRepo{}
-	RegisterHealthHandler(api, repo)
-
-	t.Run("OK - /health/ready", func(t *testing.T) {
-		repo.pingErr = nil
-		resp := api.Get("/health/ready")
-		if resp.Code != http.StatusOK {
-			t.Errorf("expected 200 OK, got %d", resp.Code)
-		}
-	})
-
-	t.Run("ServiceUnavailable - /health/ready", func(t *testing.T) {
-		repo.pingErr = errors.New("db down")
-		resp := api.Get("/health/ready")
-		if resp.Code != http.StatusServiceUnavailable {
-			t.Errorf("expected 503 Service Unavailable, got %d", resp.Code)
-		}
-	})
-
 	t.Run("OK - /healthz", func(t *testing.T) {
 		repo.pingErr = nil
 		resp := api.Get("/healthz")
@@ -122,6 +61,65 @@ func TestHealthHandler_Readiness(t *testing.T) {
 		resp := api.Get("/healthz")
 		if resp.Code != http.StatusServiceUnavailable {
 			t.Errorf("expected 503 Service Unavailable, got %d", resp.Code)
+		}
+	})
+
+	t.Run("Old /health returns 404", func(t *testing.T) {
+		resp := api.Get("/health")
+		if resp.Code != http.StatusNotFound {
+			t.Errorf("expected 404 Not Found, got %d", resp.Code)
+		}
+	})
+}
+
+func TestHealthHandler_Liveness(t *testing.T) {
+	_, api := humatest.New(t)
+	repo := &mockHealthRepo{}
+	RegisterHealthHandler(api, repo)
+
+	// Liveness is not dependent on repo, but we can set it to error to make sure it doesn't fail
+	repo.pingErr = errors.New("db down")
+
+	t.Run("/livez", func(t *testing.T) {
+		resp := api.Get("/livez")
+		if resp.Code != http.StatusOK {
+			t.Errorf("expected 200 OK, got %d", resp.Code)
+		}
+	})
+
+	t.Run("Old /health/live returns 404", func(t *testing.T) {
+		resp := api.Get("/health/live")
+		if resp.Code != http.StatusNotFound {
+			t.Errorf("expected 404 Not Found, got %d", resp.Code)
+		}
+	})
+}
+
+func TestHealthHandler_Readiness(t *testing.T) {
+	_, api := humatest.New(t)
+	repo := &mockHealthRepo{}
+	RegisterHealthHandler(api, repo)
+
+	t.Run("OK - /readyz", func(t *testing.T) {
+		repo.pingErr = nil
+		resp := api.Get("/readyz")
+		if resp.Code != http.StatusOK {
+			t.Errorf("expected 200 OK, got %d", resp.Code)
+		}
+	})
+
+	t.Run("ServiceUnavailable - /readyz", func(t *testing.T) {
+		repo.pingErr = errors.New("db down")
+		resp := api.Get("/readyz")
+		if resp.Code != http.StatusServiceUnavailable {
+			t.Errorf("expected 503 Service Unavailable, got %d", resp.Code)
+		}
+	})
+
+	t.Run("Old /health/ready returns 404", func(t *testing.T) {
+		resp := api.Get("/health/ready")
+		if resp.Code != http.StatusNotFound {
+			t.Errorf("expected 404 Not Found, got %d", resp.Code)
 		}
 	})
 }

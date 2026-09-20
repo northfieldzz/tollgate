@@ -33,22 +33,13 @@ func RegisterHealthHandler(api huma.API, repo repository.KeyRepository) {
 		return resp, nil
 	}
 
-	// 1. GET /health & /healthz (総合ヘルスチェック)
+	// 1. GET /healthz (総合ヘルスチェック)
 	huma.Register(api, huma.Operation{
 		OperationID: "healthCheck",
 		Method:      http.MethodGet,
-		Path:        "/health",
+		Path:        "/healthz",
 		Summary:     "総合ヘルスチェック",
 		Description: "プロセスの生存および DynamoDB への疎通状態を総合的に確認します。",
-		Tags:        []string{"System"},
-	}, healthHandler)
-
-	huma.Register(api, huma.Operation{
-		OperationID: "healthCheckHealthz",
-		Method:      http.MethodGet,
-		Path:        "/healthz",
-		Summary:     "総合ヘルスチェック (/healthz)",
-		Description: "Kubernetes / クラウド標準の総合ヘルスチェックエンドポイントです。",
 		Tags:        []string{"System"},
 	}, healthHandler)
 
@@ -74,41 +65,23 @@ func RegisterHealthHandler(api huma.API, repo repository.KeyRepository) {
 		return resp, nil
 	}
 
-	// 2. Liveness プローブ (/health/live, /livez)
+	// 2. Liveness プローブ (/livez)
 	huma.Register(api, huma.Operation{
 		OperationID: "livenessCheck",
 		Method:      http.MethodGet,
-		Path:        "/health/live",
+		Path:        "/livez",
 		Summary:     "Liveness プローブ (プロセスの死活監視)",
 		Description: "コンテナ・プロセスの生存を確認します。外部依存関係 (DynamoDB 等) を見ずに即座に 200 を返却します。",
 		Tags:        []string{"System"},
 	}, liveHandler)
 
-	huma.Register(api, huma.Operation{
-		OperationID: "livenessProbeLivez",
-		Method:      http.MethodGet,
-		Path:        "/livez",
-		Summary:     "Liveness プローブ (/livez)",
-		Description: "Kubernetes 標準 Liveness プローブ用エンドポイントです。",
-		Tags:        []string{"System"},
-	}, liveHandler)
-
-	// 3. Readiness プローブ (/health/ready, /readyz)
+	// 3. Readiness プローブ (/readyz)
 	huma.Register(api, huma.Operation{
 		OperationID: "readinessCheck",
 		Method:      http.MethodGet,
-		Path:        "/health/ready",
+		Path:        "/readyz",
 		Summary:     "Readiness プローブ (トラフィック受付準備監視)",
 		Description: "DynamoDB への接続が完了し、トラフィックを受け入れ可能か確認します。DB 疎通不可時は 503 を返却します。",
-		Tags:        []string{"System"},
-	}, readyHandler)
-
-	huma.Register(api, huma.Operation{
-		OperationID: "readinessProbeReadyz",
-		Method:      http.MethodGet,
-		Path:        "/readyz",
-		Summary:     "Readiness プローブ (/readyz)",
-		Description: "Kubernetes 標準 Readiness プローブ用エンドポイントです。",
 		Tags:        []string{"System"},
 	}, readyHandler)
 }

@@ -46,3 +46,59 @@ func TestAPIKey_GetHash(t *testing.T) {
 		})
 	}
 }
+
+func TestCreateKeyInput_Validate(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   CreateKeyInput
+		wantErr bool
+	}{
+		{
+			name: "Both TenantID and ServiceID empty",
+			input: CreateKeyInput{
+				TenantID:  "",
+				ServiceID: "",
+			},
+			wantErr: true,
+		},
+		{
+			name: "Whitespace only",
+			input: CreateKeyInput{
+				TenantID:  "   ",
+				ServiceID: "\t",
+			},
+			wantErr: true,
+		},
+		{
+			name: "TenantID provided",
+			input: CreateKeyInput{
+				TenantID: "tenant-1",
+			},
+			wantErr: false,
+		},
+		{
+			name: "ServiceID provided",
+			input: CreateKeyInput{
+				ServiceID: "service-1",
+			},
+			wantErr: false,
+		},
+		{
+			name: "Both provided",
+			input: CreateKeyInput{
+				TenantID:  "tenant-1",
+				ServiceID: "service-1",
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.input.Validate()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("CreateKeyInput.Validate() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
