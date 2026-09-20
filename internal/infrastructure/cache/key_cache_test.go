@@ -32,6 +32,29 @@ func (m *mockRepo) UpdateKeyStatus(ctx context.Context, keyHash string, status e
 	return nil
 }
 
+func TestNewCachedKeyRepository(t *testing.T) {
+	mock := &mockRepo{}
+
+	t.Run("ttl > 0 returns CachedKeyRepository", func(t *testing.T) {
+		repo := NewCachedKeyRepository(mock, 100*time.Millisecond)
+		if _, ok := repo.(*CachedKeyRepository); !ok {
+			t.Errorf("expected *CachedKeyRepository, got %T", repo)
+		}
+	})
+
+	t.Run("ttl <= 0 returns underlying repository", func(t *testing.T) {
+		repo := NewCachedKeyRepository(mock, 0)
+		if _, ok := repo.(*mockRepo); !ok {
+			t.Errorf("expected *mockRepo, got %T", repo)
+		}
+
+		repo = NewCachedKeyRepository(mock, -1*time.Millisecond)
+		if _, ok := repo.(*mockRepo); !ok {
+			t.Errorf("expected *mockRepo, got %T", repo)
+		}
+	})
+}
+
 func TestCachedKeyRepository(t *testing.T) {
 	mock := &mockRepo{
 		keys: map[string]*entity.APIKey{
