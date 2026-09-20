@@ -7,6 +7,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/northfieldzz/tollgate/internal/domain/entity"
 	"github.com/northfieldzz/tollgate/internal/usecase"
+	"log"
 )
 
 type VerifyKeyRequest struct {
@@ -21,7 +22,8 @@ func RegisterVerifyHandler(api huma.API, u *usecase.VerifyUsecase) {
 	handler := func(ctx context.Context, input *VerifyKeyRequest) (*VerifyKeyResponse, error) {
 		out, err := u.VerifyKey(ctx, input.Body)
 		if err != nil {
-			return nil, huma.Error500InternalServerError("キー検証処理エラー", err)
+			log.Printf("[ERROR] %s: %v", "キー検証処理エラー", err)
+			return nil, huma.Error500InternalServerError("キー検証処理エラー")
 		}
 		return &VerifyKeyResponse{Body: *out}, nil
 	}
