@@ -2,6 +2,7 @@ package http
 
 import (
 	"context"
+	"errors"
 	"net/http"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -67,6 +68,9 @@ func RegisterKeyHandlers(api huma.API, u *usecase.KeyUsecase) {
 	}, func(ctx context.Context, input *CreateKeyRequest) (*CreateKeyResponse, error) {
 		out, err := u.CreateKey(ctx, input.Body)
 		if err != nil {
+			if errors.Is(err, entity.ErrTenantOrServiceRequired) {
+				return nil, huma.Error400BadRequest("無効な入力パラメータ: "+err.Error(), err)
+			}
 			return nil, huma.Error500InternalServerError("キー発行失敗", err)
 		}
 		return &CreateKeyResponse{Body: *out}, nil

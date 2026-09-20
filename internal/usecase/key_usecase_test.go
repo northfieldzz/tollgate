@@ -3,6 +3,8 @@ package usecase
 import (
 	"strings"
 	"testing"
+
+	"github.com/northfieldzz/tollgate/internal/domain/entity"
 )
 
 func TestGenerateRawKey(t *testing.T) {
@@ -105,6 +107,73 @@ func TestExtractKeyPrefix(t *testing.T) {
 			got := ExtractKeyPrefix(tc.rawKey)
 			if got != tc.expected {
 				t.Errorf("ExtractKeyPrefix(%q) = %q; want %q", tc.rawKey, got, tc.expected)
+			}
+		})
+	}
+}
+
+func TestCreateKeyInput_Validate(t *testing.T) {
+	cases := []struct {
+		name      string
+		input     entity.CreateKeyInput
+		expectErr bool
+	}{
+		{
+			name: "tenant only",
+			input: entity.CreateKeyInput{
+				Name:     "Tenant Key",
+				TenantID: "tenant-001",
+				Scopes:   []string{"llm:*"},
+			},
+			expectErr: false,
+		},
+		{
+			name: "service only",
+			input: entity.CreateKeyInput{
+				Name:      "Service Key",
+				ServiceID: "service-orchestrator",
+				Scopes:    []string{"llm:*"},
+			},
+			expectErr: false,
+		},
+		{
+			name: "both tenant and service",
+			input: entity.CreateKeyInput{
+				Name:      "Dedicated Service Key",
+				TenantID:  "tenant-001",
+				ServiceID: "service-orchestrator",
+				Scopes:    []string{"llm:*"},
+			},
+			expectErr: false,
+		},
+		{
+			name: "both empty",
+			input: entity.CreateKeyInput{
+				Name:   "Invalid Key",
+				Scopes: []string{"llm:*"},
+			},
+			expectErr: true,
+		},
+		{
+			name: "spaces only",
+			input: entity.CreateKeyInput{
+				Name:      "Invalid Whitespace Key",
+				TenantID:  "   ",
+				ServiceID: "   ",
+				Scopes:    []string{"llm:*"},
+			},
+			expectErr: true,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.input.Validate()
+			if tc.expectErr && err == nil {
+				t.Errorf("expected error, got nil")
+			}
+			if !tc.expectErr && err != nil {
+				t.Errorf("unexpected error: %v", err)
 			}
 		})
 	}

@@ -51,6 +51,10 @@ func HashKey(rawKey string) string {
 
 // CreateKey は新しい API キーを発行し、DynamoDB にハッシュを保存した上で平文キーを1度だけ返却する
 func (u *KeyUsecase) CreateKey(ctx context.Context, input entity.CreateKeyInput) (*entity.CreateKeyOutput, error) {
+	if err := input.Validate(); err != nil {
+		return nil, err
+	}
+
 	rawKey, err := GenerateRawKey()
 	if err != nil {
 		return nil, err
