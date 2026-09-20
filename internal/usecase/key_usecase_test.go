@@ -61,3 +61,46 @@ func TestMatchScope(t *testing.T) {
 		}
 	}
 }
+
+func TestExtractKeyPrefix(t *testing.T) {
+	cases := []struct {
+		name     string
+		rawKey   string
+		expected string
+	}{
+		{
+			name:     "normal length key",
+			rawKey:   "tlge-live-8f9c1234567890abcdef",
+			expected: "tlge-live-8f9c",
+		},
+		{
+			name:     "exact length key",
+			rawKey:   "tlge-live-8f9c",
+			expected: "tlge-live-8f9c",
+		},
+		{
+			name:     "short length key",
+			rawKey:   "tlge-live-",
+			expected: "tlge-live-",
+		},
+		{
+			name:     "empty string",
+			rawKey:   "",
+			expected: "",
+		},
+		{
+			name:     "random string long",
+			rawKey:   "12345678901234567890",
+			expected: "12345678901234",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := ExtractKeyPrefix(tc.rawKey)
+			if got != tc.expected {
+				t.Errorf("ExtractKeyPrefix(%q) = %q; want %q", tc.rawKey, got, tc.expected)
+			}
+		})
+	}
+}
