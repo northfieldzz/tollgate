@@ -4,15 +4,16 @@ import (
 	"context"
 	"net/http"
 
+	"log"
+
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/northfieldzz/tollgate/internal/domain/repository"
-	"log"
 )
 
 type HealthOutput struct {
 	Body struct {
 		Status   string `json:"status" example:"ok" doc:"稼働ステータス"`
-		Service  string `json:"service" example:"api_manager" doc:"サービス名"`
+		Service  string `json:"service" example:"tollgate" doc:"サービス名"`
 		Database string `json:"database,omitempty" example:"connected" doc:"DynamoDB 疎通ステータス"`
 	}
 }
@@ -21,7 +22,7 @@ func RegisterHealthHandler(api huma.API, repo repository.KeyRepository) {
 	healthHandler := func(ctx context.Context, input *struct{}) (*HealthOutput, error) {
 		resp := &HealthOutput{}
 		resp.Body.Status = "ok"
-		resp.Body.Service = "api_manager"
+		resp.Body.Service = "tollgate"
 
 		if err := repo.Ping(ctx); err != nil {
 			resp.Body.Status = "degraded"
@@ -46,13 +47,13 @@ func RegisterHealthHandler(api huma.API, repo repository.KeyRepository) {
 	liveHandler := func(ctx context.Context, input *struct{}) (*HealthOutput, error) {
 		resp := &HealthOutput{}
 		resp.Body.Status = "alive"
-		resp.Body.Service = "api_manager"
+		resp.Body.Service = "tollgate"
 		return resp, nil
 	}
 
 	readyHandler := func(ctx context.Context, input *struct{}) (*HealthOutput, error) {
 		resp := &HealthOutput{}
-		resp.Body.Service = "api_manager"
+		resp.Body.Service = "tollgate"
 
 		if err := repo.Ping(ctx); err != nil {
 			resp.Body.Status = "not_ready"
