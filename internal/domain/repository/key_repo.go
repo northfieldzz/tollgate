@@ -28,7 +28,7 @@ type KeyRepository interface {
 	UpdateKeySettings(ctx context.Context, keyHash string, input entity.UpdateKeyInput) (*entity.APIKey, error)
 
 	// RotateKey はローテーションを実行し、旧キーのメタデータを引き継いで新キーを保存する
-	RotateKey(ctx context.Context, oldKeyHash, newKeyHash, newKeyPrefix string, gracePeriodExpiresAt time.Time) (*entity.APIKey, error)
+	RotateKey(ctx context.Context, params entity.RotateKeyParams) (*entity.APIKey, error)
 
 	// DeleteKey はキーを物理削除する
 	DeleteKey(ctx context.Context, keyHash string) error

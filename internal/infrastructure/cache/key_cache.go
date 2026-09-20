@@ -97,11 +97,11 @@ func (c *CachedKeyRepository) UpdateKeyStatus(ctx context.Context, keyHash strin
 	return err
 }
 
-func (c *CachedKeyRepository) RotateKey(ctx context.Context, oldKeyHash, newKeyHash, newPrefix string, graceExpires time.Time) (*entity.APIKey, error) {
-	key, err := c.underlying.RotateKey(ctx, oldKeyHash, newKeyHash, newPrefix, graceExpires)
+func (c *CachedKeyRepository) RotateKey(ctx context.Context, params entity.RotateKeyParams) (*entity.APIKey, error) {
+	key, err := c.underlying.RotateKey(ctx, params)
 	if err == nil {
-		c.invalidate(oldKeyHash)
-		c.invalidate(newKeyHash)
+		c.invalidate(params.OldKeyHash)
+		c.invalidate(params.NewKeyHash)
 	}
 	return key, err
 }

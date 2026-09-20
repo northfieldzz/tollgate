@@ -35,7 +35,7 @@ func (m *mockKeyRepo) UpdateKeyStatus(ctx context.Context, keyHash string, statu
 func (m *mockKeyRepo) UpdateKeySettings(ctx context.Context, keyHash string, input entity.UpdateKeyInput) (*entity.APIKey, error) {
 	return nil, nil
 }
-func (m *mockKeyRepo) RotateKey(ctx context.Context, oldKeyHash, newKeyHash, newKeyPrefix string, gracePeriodExpiresAt time.Time) (*entity.APIKey, error) {
+func (m *mockKeyRepo) RotateKey(ctx context.Context, params entity.RotateKeyParams) (*entity.APIKey, error) {
 	return nil, nil
 }
 func (m *mockKeyRepo) DeleteKey(ctx context.Context, keyHash string) error { return nil }
