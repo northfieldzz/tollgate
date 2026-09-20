@@ -12,6 +12,8 @@ import (
 type mockRepo struct {
 	repository.KeyRepository
 	getCallCount int
+	putCallCount int
+	putErr       error
 	keys         map[string]*entity.APIKey
 }
 
@@ -29,6 +31,15 @@ func (m *mockRepo) UpdateKeyStatus(ctx context.Context, keyHash string, status e
 		key.Status = status
 		key.IsActive = isActive
 	}
+	return nil
+}
+
+func (m *mockRepo) PutKey(ctx context.Context, key *entity.APIKey) error {
+	m.putCallCount++
+	if m.putErr != nil {
+		return m.putErr
+	}
+	m.keys[key.GetHash()] = key
 	return nil
 }
 
@@ -79,5 +90,109 @@ func TestCachedKeyRepository(t *testing.T) {
 	}
 	if k3.Status != entity.StatusSuspended {
 		t.Errorf("expected status suspended, got %s", k3.Status)
+	}
+}
+
+func TestCachedKeyRepository_PutKey(t *testing.T) {
+	mock := &mockRepo{
+		keys: map[string]*entity.APIKey{
+			"hash123": {
+				PK:       "KEY#hash123",
+				KeyID:    "key-1",
+				IsActive: true,
+				Status:   entity.StatusActive,
+			},
+		},
+	}
+
+	cachedRepo := NewCachedKeyRepository(mock, 100*time.Millisecond)
+	ctx := context.Background()
+
+	// 1. Fetch key to warm up the cache
+	_, err := cachedRepo.GetKeyByHash(ctx, "hash123")
+	if err != nil {
+		t.Fatalf("unexpected error warming cache: %v", err)
+	}
+	if mock.getCallCount != 1 {
+		t.Errorf("expected 1 get call, got %d", mock.getCallCount)
+	}
+
+	// 2. Modify key and PutKey
+	newKey := &entity.APIKey{
+		PK:       "KEY#hash123",
+		KeyID:    "key-1",
+		IsActive: false, // Changed
+		Status:   entity.StatusSuspended, // Changed
+	}
+	err = cachedRepo.PutKey(ctx, newKey)
+	if err != nil {
+		t.Fatalf("unexpected error from PutKey: %v", err)
+	}
+	if mock.putCallCount != 1 {
+		t.Errorf("expected 1 put call, got %d", mock.putCallCount)
+	}
+
+	// 3. Fetch again to verify cache was invalidated and new data is retrieved
+	k2, err := cachedRepo.GetKeyByHash(ctx, "hash123")
+	if err != nil || k2 == nil {
+		t.Fatalf("expected key, got %v, err: %v", k2, err)
+	}
+	if mock.getCallCount != 2 {
+		t.Errorf("expected 2 get calls after invalidation, got %d", mock.getCallCount)
+	}
+	if k2.IsActive != false || k2.Status != entity.StatusSuspended {
+		t.Errorf("expected updated key status")
+	}
+}
+
+func TestCachedKeyRepository_PutKey_Error(t *testing.T) {
+	importErr := context.DeadlineExceeded // arbitrary error
+	mock := &mockRepo{
+		putErr: importErr,
+		keys: map[string]*entity.APIKey{
+			"hash123": {
+				PK:       "KEY#hash123",
+				KeyID:    "key-1",
+				IsActive: true,
+				Status:   entity.StatusActive,
+			},
+		},
+	}
+
+	cachedRepo := NewCachedKeyRepository(mock, 100*time.Millisecond)
+	ctx := context.Background()
+
+	// 1. Fetch key to warm up the cache
+	_, err := cachedRepo.GetKeyByHash(ctx, "hash123")
+	if err != nil {
+		t.Fatalf("unexpected error warming cache: %v", err)
+	}
+
+	// 2. PutKey should fail and return error
+	newKey := &entity.APIKey{
+		PK:       "KEY#hash123",
+		KeyID:    "key-1",
+		IsActive: false, // Changed
+		Status:   entity.StatusSuspended, // Changed
+	}
+	err = cachedRepo.PutKey(ctx, newKey)
+	if err != importErr {
+		t.Fatalf("expected error %v, got %v", importErr, err)
+	}
+
+	// 3. Fetch again to verify cache was NOT invalidated (should be a cache hit)
+	k2, err := cachedRepo.GetKeyByHash(ctx, "hash123")
+	if err != nil || k2 == nil {
+		t.Fatalf("expected key, got %v, err: %v", k2, err)
+	}
+
+	// getCallCount should still be 1 (cache hit)
+	if mock.getCallCount != 1 {
+		t.Errorf("expected 1 get call, got %d", mock.getCallCount)
+	}
+
+	// the cached value should still be the old one
+	if k2.IsActive != true || k2.Status != entity.StatusActive {
+		t.Errorf("expected old key status because cache shouldn't be invalidated")
 	}
 }
