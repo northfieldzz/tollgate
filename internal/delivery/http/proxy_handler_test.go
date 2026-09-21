@@ -378,5 +378,17 @@ func TestMultiTargetProxy_TenantResolutionAndConflictValidation(t *testing.T) {
 			t.Fatalf("expected status 400 Bad Request, got %d (body: %s)", rec.Code, rec.Body.String())
 		}
 	})
+
+	t.Run("Conflicting X-Service-ID header returns 403 Forbidden", func(t *testing.T) {
+		req := httptest.NewRequest("POST", "/llm/v1/chat", nil)
+		req.Header.Set("Authorization", "Bearer "+tenantKey)
+		req.Header.Set("X-Service-ID", "different-service")
+		rec := httptest.NewRecorder()
+		proxy.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusForbidden {
+			t.Fatalf("expected status 403 Forbidden, got %d (body: %s)", rec.Code, rec.Body.String())
+		}
+	})
 }
 

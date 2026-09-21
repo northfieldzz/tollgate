@@ -21,8 +21,8 @@
   - ルーティング単位での Prefix Stripping、スコープ検証（`llm:*`, `mcp:*` 等）を自動実行。
   - プロキシ専用 HTTP トランスポートチューニングによる高並行・低遅延通信（コネクションプール最適化、TIME_WAIT 枯渇抑止）。
 - **堅牢なマルチテナント分離 & コンテキスト注入**:
-  - **テナントキー**: API キーに紐づく `tenant_id` を下流へ `X-Tenant-ID` として自動注入。クライアント指定値とのコンフリクト時は `403 Forbidden` で即座に遮断（Fail-Fast）。
-  - **サービスキー**: クライアントが指定した動的 `X-Tenant-ID` を透過フォワード（未指定時は `400 Bad Request`）。下流にサービス識別子（`X-Service-ID`）を注入。
+  - **テナントキー**: `tenant_id` と `service_id` を保持。キーの `tenant_id` と `service_id` を下流へ `X-Tenant-ID` / `X-Service-ID` として確実に注入。クライアント指定値とのコンフリクト時は `403 Forbidden` で即座に遮断（Fail-Fast）。
+  - **サービスキー**: `service_id` を保持し、クライアントが指定した動的 `X-Tenant-ID` を透過フォワード（未指定時は `400 Bad Request`）。下流にサービス識別子（`X-Service-ID`）を注入。
 - **高スループット・レートリミット & クォータ制御**:
   - **分間レートリミット (RPM)**: インメモリ・スライディングウィンドウカウンターによる超低レイテンシなリアルタイム流量制限。
   - **月間クォータ**: DynamoDB アトミックカウンター（`ADD`）による月間利用回数の確実な集計と上限超過検知。
@@ -240,6 +240,7 @@ curl -X POST http://localhost:8002/v1/keys \
   -d '{
     "name": "Production AI Agent",
     "tenant_id": "dept-risk-01",
+    "service_id": "ai-engine",
     "scopes": ["llm:*", "mcp:*"],
     "rate_limit_rpm": 600,
     "monthly_quota": 100000
@@ -253,6 +254,7 @@ curl -X POST http://localhost:8002/v1/keys \
   "key_prefix": "tlge-live-ca20",
   "name": "Production AI Agent",
   "tenant_id": "dept-risk-01",
+  "service_id": "ai-engine",
   "scopes": ["llm:*", "mcp:*"],
   "rate_limit_rpm": 600,
   "monthly_quota": 100000,

@@ -7,7 +7,9 @@ import (
 )
 
 var (
-	// ErrTenantOrServiceRequired は TenantID も ServiceID も指定されていない場合のエラー
+	// ErrServiceIDRequired は ServiceID が指定されていない場合のエラー
+	ErrServiceIDRequired = errors.New("service_id is required")
+	// ErrTenantOrServiceRequired は後方互換のためのエラー定義
 	ErrTenantOrServiceRequired = errors.New("either tenant_id or service_id must be specified")
 )
 
@@ -61,17 +63,17 @@ func (k *APIKey) GetHash() string {
 type CreateKeyInput struct {
 	Name         string   `json:"name" doc:"API キーの名称・用途" required:"true" example:"Production AI Engine Workflow"`
 	TenantID     string   `json:"tenant_id,omitempty" doc:"所属テナント ID (サービスキーの場合は省略可)" example:"dept-risk-01"`
-	ServiceID    string   `json:"service_id,omitempty" doc:"呼び出し元サービス識別子 (テナントキーの場合は省略可)" example:"finance-app"`
+	ServiceID    string   `json:"service_id" doc:"呼び出し元サービス識別子" required:"true" example:"finance-app"`
 	Scopes       []string `json:"scopes" doc:"許可スコープ一覧 (例: llm:*, ai:workflows:execute, mcp:tools:execute)" required:"true" example:"[\"llm:*\", \"ai:workflows:execute\", \"mcp:tools:execute\"]"`
 	RateLimitRPM int      `json:"rate_limit_rpm,omitempty" doc:"分間リクエスト上限 (デフォルト: 600)" default:"600" example:"600"`
 	MonthlyQuota int64    `json:"monthly_quota,omitempty" doc:"月間最大リクエスト上限 (0: 無制限)" default:"0" example:"100000"`
 	ExpiresIn    int64    `json:"expires_in,omitempty" doc:"有効期間 (秒)。未指定時は無期限" example:"2592000"`
 }
 
-// Validate は入力パラメータの妥当性を検証する (TenantID または ServiceID のいずれか必須)
+// Validate は入力パラメータの妥当性を検証する (ServiceID 必須)
 func (in *CreateKeyInput) Validate() error {
-	if strings.TrimSpace(in.TenantID) == "" && strings.TrimSpace(in.ServiceID) == "" {
-		return ErrTenantOrServiceRequired
+	if strings.TrimSpace(in.ServiceID) == "" {
+		return ErrServiceIDRequired
 	}
 	return nil
 }

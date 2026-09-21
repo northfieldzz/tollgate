@@ -283,14 +283,29 @@ func (m *MultiTargetProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Quota-Remaining", strconv.FormatInt(verifyOut.RemainingQuota, 10))
 	}
 
-	// 6. テナント解決 & コンフリクト検証
+	// 6. テナント & サービス解決とコンフリクト検証
 	clientTenantID := strings.TrimSpace(r.Header.Get("X-Tenant-ID"))
+	clientServiceID := strings.TrimSpace(r.Header.Get("X-Service-ID"))
 
 	// クライアントからのヘッダースプーフィングを防ぐため、事前に削除
 	r.Header.Del("X-Tenant-ID")
 	r.Header.Del("X-Key-ID")
 	r.Header.Del("X-Key-Prefix")
 	r.Header.Del("X-Service-ID")
+
+	// ServiceID コンフリクト検証
+	var resolvedServiceID string
+	if verifyOut.ServiceID != "" {
+		if clientServiceID != "" && clientServiceID != verifyOut.ServiceID {
+			writeJSONError(w, http.StatusForbidden, "service_mismatch",
+				fmt.Sprintf("API key is bound to service %q, but request specified %q", verifyOut.ServiceID, clientServiceID),
+				"service_conflict")
+			return
+		}
+		resolvedServiceID = verifyOut.ServiceID
+	} else if clientServiceID != "" {
+		resolvedServiceID = clientServiceID
+	}
 
 	var resolvedTenantID string
 	if verifyOut.TenantID != "" {
@@ -316,8 +331,8 @@ func (m *MultiTargetProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	r.Header.Set("X-Tenant-ID", resolvedTenantID)
 	r.Header.Set("X-Key-ID", verifyOut.KeyID)
 	r.Header.Set("X-Key-Prefix", verifyOut.KeyPrefix)
-	if verifyOut.ServiceID != "" {
-		r.Header.Set("X-Service-ID", verifyOut.ServiceID)
+	if resolvedServiceID != "" {
+		r.Header.Set("X-Service-ID", resolvedServiceID)
 	}
 
 	// 7. 適切なプロキシに転送

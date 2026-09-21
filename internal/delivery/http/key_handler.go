@@ -69,7 +69,7 @@ func RegisterKeyHandlers(api huma.API, u *usecase.KeyUsecase) {
 	}, func(ctx context.Context, input *CreateKeyRequest) (*CreateKeyResponse, error) {
 		out, err := u.CreateKey(ctx, input.Body)
 		if err != nil {
-			if errors.Is(err, entity.ErrTenantOrServiceRequired) {
+			if errors.Is(err, entity.ErrServiceIDRequired) || errors.Is(err, entity.ErrTenantOrServiceRequired) {
 				return nil, huma.Error400BadRequest("無効な入力パラメータ: "+err.Error(), err)
 			}
 			log.Printf("[ERROR] %s: %v", "キー発行失敗", err)

@@ -119,13 +119,13 @@ func TestCreateKeyInput_Validate(t *testing.T) {
 		expectErr bool
 	}{
 		{
-			name: "tenant only",
+			name: "tenant only (missing service_id)",
 			input: entity.CreateKeyInput{
 				Name:     "Tenant Key",
 				TenantID: "tenant-001",
 				Scopes:   []string{"llm:*"},
 			},
-			expectErr: false,
+			expectErr: true,
 		},
 		{
 			name: "service only",

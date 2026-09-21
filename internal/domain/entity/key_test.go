@@ -70,14 +70,15 @@ func TestCreateKeyInput_Validate(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "TenantID provided",
+			name: "TenantID provided without ServiceID",
 			input: CreateKeyInput{
-				TenantID: "tenant-1",
+				TenantID:  "tenant-1",
+				ServiceID: "",
 			},
-			wantErr: false,
+			wantErr: true,
 		},
 		{
-			name: "ServiceID provided",
+			name: "ServiceID provided without TenantID",
 			input: CreateKeyInput{
 				ServiceID: "service-1",
 			},
