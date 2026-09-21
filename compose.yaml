@@ -15,11 +15,21 @@ services:
         condition: service_started
       dynamodb-init:
         condition: service_completed_successfully
+      mock-server:
+        condition: service_started
     healthcheck:
       test: [ "CMD-SHELL", "wget -q --spider http://localhost:8080/livez || exit 1" ]
       interval: 10s
       timeout: 5s
       retries: 5
+
+  mock-server:
+    container_name: mock-server
+    build:
+      context: .
+      dockerfile: Dockerfile.mock
+    ports:
+      - "9000:8000"
 
   dynamodb:
     image: amazon/dynamodb-local:2.4.0

@@ -1,0 +1,23 @@
+# ─── Build Stage ─────────────────────────────────────────────────────────────
+FROM golang:1.27.1-alpine AS builder
+
+WORKDIR /app
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o mock-server cmd/mock_server/main.go
+
+# ─── Runtime Stage ───────────────────────────────────────────────────────────
+FROM alpine:3.20
+
+WORKDIR /app
+
+COPY --from=builder /app/mock-server .
+
+ENV PORT=8000
+EXPOSE 8000
+
+CMD ["/app/mock-server"]
