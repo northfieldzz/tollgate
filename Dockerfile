@@ -5,6 +5,11 @@ WORKDIR /app
 
 RUN apk add --no-cache git ca-certificates tzdata
 
+# 依存キャッシュレイヤー (go.mod/go.sum が変わった時だけ再取得)
+COPY go.mod go.sum ./
+RUN go mod download
+
+# ソースをコピーしてテスト＆ビルド
 COPY . .
 
 # 依存解決とテスト、静的バイナリビルド

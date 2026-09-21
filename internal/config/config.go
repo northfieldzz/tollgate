@@ -1,6 +1,7 @@
 package config
 
 import (
+	"bufio"
 	"cmp"
 	"encoding/json"
 	"fmt"
@@ -10,6 +11,40 @@ import (
 	"strings"
 	"time"
 )
+
+// loadDotEnv は .env ファイルを読み込み、未セットの環境変数にのみ適用する。
+// ファイルが存在しない場合は何もしない（エラーにならない）。
+// 環境変数が既にセットされている場合は上書きしない（環境変数優先）。
+func loadDotEnv(path string) {
+	f, err := os.Open(path)
+	if err != nil {
+		return // ファイルが存在しない場合はスキップ
+	}
+	defer f.Close()
+
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		// 空行・コメント行をスキップ
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		key, val, ok := strings.Cut(line, "=")
+		if !ok {
+			continue
+		}
+		key = strings.TrimSpace(key)
+		val = strings.TrimSpace(val)
+		// 値を囲むクォートを除去 ("value" or 'value')
+		if len(val) >= 2 && ((val[0] == '"' && val[len(val)-1] == '"') || (val[0] == '\'' && val[len(val)-1] == '\'')) {
+			val = val[1 : len(val)-1]
+		}
+		// 環境変数が未セットの場合のみ適用（環境変数優先）
+		if os.Getenv(key) == "" {
+			_ = os.Setenv(key, val)
+		}
+	}
+}
 
 // RouteConfig は動的ルーティングのルール定義
 type RouteConfig struct {
@@ -33,8 +68,10 @@ type Config struct {
 	ForwardTargetURL string
 }
 
-// Load は環境変数および設定ファイルから Config を構築する
+// Load は環境変数および設定ファイルから Config を構築する。
+// カレントディレクトリの .env を自動で読み込む（環境変数が既にセットされている場合は上書きしない）。
 func Load() (*Config, error) {
+	loadDotEnv(".env")
 	port := cmp.Or(os.Getenv("PORT"), "8000")
 	endpoint := os.Getenv("DYNAMODB_ENDPOINT")
 	region := cmp.Or(os.Getenv("AWS_REGION"), "ap-northeast-1")

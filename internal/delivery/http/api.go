@@ -18,7 +18,8 @@ func NewRouter(cfg *config.Config, keyUsecase *usecase.KeyUsecase, verifyUsecase
 
 	// 1. Huma v2 OpenAPI 3.1 設定
 	humaConfig := huma.DefaultConfig("Tollgate", "1.0.0")
-	humaConfig.DocsPath = cfg.DocsPath // 未指定(空文字)の場合はドキュメント UI が無効化される
+	humaConfig.DocsPath = cfg.DocsPath       // 未指定(空文字)の場合はドキュメント UI が無効化される
+	humaConfig.DocsRenderer = huma.DocsRendererScalar // Stoplight Elements → Scalar に切り替え
 
 	if cfg.OpenAPIPath != "" {
 		humaConfig.OpenAPIPath = strings.TrimSuffix(cfg.OpenAPIPath, ".json")
@@ -39,12 +40,7 @@ func NewRouter(cfg *config.Config, keyUsecase *usecase.KeyUsecase, verifyUsecase
 		Scheme:      "bearer",
 		Description: "Admin API Key via Authorization: Bearer <ADMIN_API_KEY>",
 	}
-	humaConfig.Components.SecuritySchemes["adminApiKeyAuth"] = &huma.SecurityScheme{
-		Type:        "apiKey",
-		In:          "header",
-		Name:        "X-Admin-Key",
-		Description: "Admin API Key via X-Admin-Key header",
-	}
+
 
 	api := humago.New(mux, humaConfig)
 
@@ -61,8 +57,6 @@ func NewRouter(cfg *config.Config, keyUsecase *usecase.KeyUsecase, verifyUsecase
 			var providedKey string
 			if strings.HasPrefix(authHeader, "Bearer ") {
 				providedKey = strings.TrimPrefix(authHeader, "Bearer ")
-			} else if k := ctx.Header("X-Admin-Key"); k != "" {
-				providedKey = k
 			}
 
 			if subtle.ConstantTimeCompare([]byte(providedKey), []byte(cfg.AdminAPIKey)) != 1 {

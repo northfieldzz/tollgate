@@ -9,17 +9,7 @@ services:
     env_file:
       - .env
     environment:
-      PORT: 8080
-      DYNAMODB_ENDPOINT: ${DYNAMODB_ENDPOINT:-http://dynamodb:8000}
-      AWS_REGION: ${AWS_REGION:-ap-northeast-1}
-      TABLE_NAME: ${TABLE_NAME:-TollgateAPIKeys}
-      PROXY_ROUTES: ${PROXY_ROUTES:-}
-      ROUTES_CONFIG_FILE: ${ROUTES_CONFIG_FILE:-}
-      FORWARD_TARGET_URL: ${FORWARD_TARGET_URL:-}
-      DOCS_PATH: ${DOCS_PATH:-/docs}
-      OPENAPI_PATH: ${OPENAPI_PATH:-/openapi}
-      KEY_CACHE_TTL: ${KEY_CACHE_TTL:-10}
-      ADMIN_API_KEY: ${ADMIN_API_KEY:-admin-secret-key-for-local-dev}
+      PORT: 8080  # ポートマッピングと合わせて明示的に指定
     depends_on:
       dynamodb:
         condition: service_started
@@ -34,6 +24,8 @@ services:
   dynamodb:
     image: amazon/dynamodb-local:2.4.0
     command: "-jar DynamoDBLocal.jar -sharedDb -inMemory"
+    ports:
+      - "8000:8000"
     profiles:
       - database
 

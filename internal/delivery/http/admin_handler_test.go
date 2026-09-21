@@ -28,7 +28,7 @@ func TestAdminAPI_Authentication(t *testing.T) {
 		}
 	})
 
-	t.Run("Configured ADMIN_API_KEY validates Bearer and X-Admin-Key", func(t *testing.T) {
+	t.Run("Configured ADMIN_API_KEY validates Bearer token", func(t *testing.T) {
 		adminKey := "super-admin-secret-999"
 		cfg := &config.Config{
 			AdminAPIKey: adminKey,
@@ -55,24 +55,10 @@ func TestAdminAPI_Authentication(t *testing.T) {
 				wantStatus: http.StatusUnauthorized,
 			},
 			{
-				name:       "Invalid X-Admin-Key header",
-				path:       "/v1/admin/keys?tenant_id=t1",
-				headerKey:  "X-Admin-Key",
-				headerVal:  "wrong-secret",
-				wantStatus: http.StatusUnauthorized,
-			},
-			{
 				name:       "Valid Bearer token",
 				path:       "/v1/admin/keys?tenant_id=t1",
 				headerKey:  "Authorization",
 				headerVal:  "Bearer " + adminKey,
-				wantStatus: http.StatusOK,
-			},
-			{
-				name:       "Valid X-Admin-Key header",
-				path:       "/v1/admin/keys?tenant_id=t1",
-				headerKey:  "X-Admin-Key",
-				headerVal:  adminKey,
 				wantStatus: http.StatusOK,
 			},
 			{
