@@ -73,7 +73,7 @@ func RegisterKeyHandlers(api huma.API, u *usecase.KeyUsecase) {
 		out, err := u.CreateKey(ctx, input.Body)
 		if err != nil {
 			if errors.Is(err, entity.ErrServiceIDRequired) || errors.Is(err, entity.ErrTenantOrServiceRequired) {
-				return nil, huma.Error400BadRequest("無効な入力パラメータ: "+err.Error(), err)
+				return nil, huma.Error400BadRequest("無効な入力パラメータ: " + err.Error())
 			}
 			log.Printf("[ERROR] %s: %v", "キー発行失敗", err)
 			return nil, huma.Error500InternalServerError("キー発行失敗")

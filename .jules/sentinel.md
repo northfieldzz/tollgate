@@ -7,3 +7,7 @@
 **Vulnerability:** Information Exposure (CWE-209) via `huma.Error500InternalServerError` and `huma.Error503ServiceUnavailable` passing internal errors to the client.
 **Learning:** By default, passing an `err` object to `huma.ErrorXXX` functions serializes the error details into the JSON response. This leaks sensitive information like database connection errors or internal system paths.
 **Prevention:** Always log the internal `err` securely on the server side using `log.Printf`, and pass only a generic error message (without the `err` object) to `huma.ErrorXXX` functions to ensure safe client responses.
+## 2023-10-27 - [Information Exposure in huma.Error400BadRequest]
+**Vulnerability:** Information Exposure (CWE-209) via `huma.Error400BadRequest` passing internal errors to the client.
+**Learning:** Passing an `err` object to `huma.ErrorXXX` functions serializes the error details into the JSON response. This leaks internal information.
+**Prevention:** Avoid passing the `err` object to `huma.ErrorXXX` functions and use a safe, generic error message.
