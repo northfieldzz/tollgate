@@ -31,9 +31,10 @@ func RegisterVerifyHandler(api huma.API, u *usecase.VerifyUsecase) {
 	huma.Register(api, huma.Operation{
 		OperationID: "verifyApiKey",
 		Method:      http.MethodPost,
-		Path:        "/v1/verify",
+		Path:        "/v1/admin/verify",
 		Summary:     "キー検証 & レートリミット消費",
 		Description: "各 Web API (ai_engine / mcp_gateway / llm_gateway) がクライアントから受け取った API キーの有効性、スコープ合致、RPM レート消費、月間クォータ残量を検証します。",
-		Tags:        []string{"Verification"},
+		Tags:        []string{"Verification (Admin)"},
+		Security:    []map[string][]string{{"adminBearerAuth": {}}, {"adminApiKeyAuth": {}}},
 	}, handler)
 }

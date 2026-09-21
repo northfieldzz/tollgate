@@ -27,7 +27,7 @@
   - **分間レートリミット (RPM)**: インメモリ・スライディングウィンドウカウンターによる超低レイテンシなリアルタイム流量制限。
   - **月間クォータ**: DynamoDB アトミックカウンター（`ADD`）による月間利用回数の確実な集計と上限超過検知。
 - **ゼロダウンタイム・キーローテーション**:
-  - `POST /v1/keys/{key_id}/rotate` により、旧キーの失効猶予期間（Grace Period）を保ちながら新キーを発行。クライアント側の無停止キー切り替えを支援。
+  - `POST /v1/admin/keys/{key_id}/rotate` により、旧キーの失効猶予期間（Grace Period）を保ちながら新キーを発行。クライアント側の無停止キー切り替えを支援。
 - **DynamoDB 永続化 & スパースインデックス**:
   - `pk` (`KEY#<sha256_hash>`) による $O(1)$ の高速検索。
   - グローバルセカンダリインデックス（`GSI_TenantKeys`）によるテナント単位のキー一覧高速検索。
@@ -58,8 +58,8 @@ flowchart TD
             HEADER_INJECT["Context Injector<br/>(X-Tenant-ID / X-Key-ID)"]
         end
 
-        subgraph ManagementAPI ["Management API (Huma v2)"]
-            KEY_MGMT["Key Lifecycle API<br/>• POST /v1/keys<br/>• POST /v1/keys/{id}/rotate<br/>• POST /v1/verify"]
+        subgraph ManagementAPI ["Management API (Huma v2 - Protected by ADMIN_API_KEY)"]
+            KEY_MGMT["Key Lifecycle API<br/>• POST /v1/admin/keys<br/>• POST /v1/admin/keys/{id}/rotate<br/>• POST /v1/admin/verify"]
             HEALTH["Health & Probe Handlers<br/>• /livez<br/>• /readyz<br/>• /healthz"]
             METRICS["Prometheus<br/>• /metrics"]
         end
@@ -77,7 +77,7 @@ flowchart TD
 
     %% Client flows
     Client -->|"API Request (Bearer tlge-live-...)"| PROXY
-    Client -->|"Management Request"| KEY_MGMT
+    Client -->|"Admin Request (Bearer ADMIN_API_KEY)"| KEY_MGMT
 
     %% Internal Tollgate flows
     PROXY --> VERIFY
@@ -108,12 +108,12 @@ tollgate/
 │   ├── config/                     # 環境変数・ルーティング設定ローダー
 │   ├── delivery/
 │   │   └── http/                   # HTTP ハンドラー、ルーティング、プロキシ実装
-│   │       ├── api.go              # Huma v2 ルーター & 共通ミドルウェア初期化
+│   │       ├── api.go              # Huma v2 ルーター & 共通ミドルウェア初期化 (ADMIN_API_KEY 認証)
 │   │       ├── health_handler.go   # /livez, /readyz, /healthz ハンドラー
-│   │       ├── key_handler.go      # /v1/keys CRUD & ローテーション API
+│   │       ├── key_handler.go      # /v1/admin/keys CRUD & ローテーション API
 │   │       ├── metrics_handler.go  # Prometheus /metrics ハンドラー
 │   │       ├── proxy_handler.go    # 動的マルチターゲット・リバースプロキシ
-│   │       └── verify_handler.go   # /v1/verify 内部検証 API
+│   │       └── verify_handler.go   # /v1/admin/verify 内部検証 API
 │   ├── domain/
 │   │   ├── entity/                 # ドメインモデル (APIKey, CreateKeyInput 等)
 │   │   └── repository/             # リポジトリインターフェース定義
@@ -136,22 +136,25 @@ tollgate/
 
 ## API エンドポイント一覧
 
-### 1. API キー管理 (`/v1/keys`)
-| メソッド | パス | 説明 |
-|:---|:---|:---|
-| `POST` | `/v1/keys` | 新規 API キー発行（平文キーは本レスポンスのみ開示） |
-| `GET` | `/v1/keys` | 指定テナントの API キー一覧取得 (`?tenant_id=...`) |
-| `GET` | `/v1/keys/{key_id}` | API キー詳細メタデータ取得 |
-| `PATCH` | `/v1/keys/{key_id}` | API キー設定変更（名称、スコープ、レート上限等） |
-| `POST` | `/v1/keys/{key_id}/suspend` | API キーの一時停止（即座にリクエスト拒絶） |
-| `POST` | `/v1/keys/{key_id}/resume` | 一時停止中 API キーの再開 |
-| `POST` | `/v1/keys/{key_id}/rotate` | ゼロダウンタイム・キーローテーション（新キー発行 & 猶予期間設定） |
-| `DELETE` | `/v1/keys/{key_id}` | API キーの物理削除・即時失効 |
+### 1. 管理用 API キー操作 (`/v1/admin/keys`)
+> [!IMPORTANT]
+> `/v1/admin/*` 配下のエンドポイントはマスター管理者キー（`Authorization: Bearer <ADMIN_API_KEY>` または `X-Admin-Key: <ADMIN_API_KEY>`）による認証が必須です。
 
-### 2. キー検証 API (`/v1/verify`)
 | メソッド | パス | 説明 |
 |:---|:---|:---|
-| `POST` | `/v1/verify` | 内部サービス連携用キー検証 & レートリミット / クォータ判定 |
+| `POST` | `/v1/admin/keys` | 新規 API キー発行（平文キーは本レスポンスのみ開示） |
+| `GET` | `/v1/admin/keys` | 指定テナントの API キー一覧取得 (`?tenant_id=...`) |
+| `GET` | `/v1/admin/keys/{key_id}` | API キー詳細メタデータ取得 |
+| `PATCH` | `/v1/admin/keys/{key_id}` | API キー設定変更（名称、スコープ、レート上限等） |
+| `POST` | `/v1/admin/keys/{key_id}/suspend` | API キーの一時停止（即座にリクエスト拒絶） |
+| `POST` | `/v1/admin/keys/{key_id}/resume` | 一時停止中 API キーの再開 |
+| `POST` | `/v1/admin/keys/{key_id}/rotate` | ゼロダウンタイム・キーローテーション（新キー発行 & 猶予期間設定） |
+| `DELETE` | `/v1/admin/keys/{key_id}` | API キーの物理削除・即時失効 |
+
+### 2. キー検証 API (`/v1/admin/verify`)
+| メソッド | パス | 説明 |
+|:---|:---|:---|
+| `POST` | `/v1/admin/verify` | 内部サービス連携用キー検証 & レートリミット / クォータ判定（ADMIN_API_KEY 認証必須） |
 
 ### 3. リバースプロキシ (`/*`)
 | メソッド | パス | 説明 |
@@ -176,6 +179,7 @@ tollgate/
 
 | 変数名 | デフォルト値 | 必須 | 説明 |
 |:---|:---|:---:|:---|
+| `ADMIN_API_KEY` | *(空)* | 推奨 | 管理用 WebAPI (`/v1/admin/*`) を保護するマスターキー。未設定時は管理 API が 401 で遮断される (Fail-Fast) |
 | `PORT` | `8000` | 任意 | HTTP サーバーのリッスンポート |
 | `AWS_REGION` | `ap-northeast-1` | 任意 | DynamoDB 接続リージョン |
 | `TABLE_NAME` | `TollgateAPIKeys` | 任意 | API キー管理用 DynamoDB テーブル名 |
@@ -232,10 +236,11 @@ go run cmd/server/main.go
 
 ## API 利用例
 
-### ① テナントキーの発行 (`POST /v1/keys`)
+### ① テナントキーの発行 (`POST /v1/admin/keys`)
 
 ```bash
-curl -X POST http://localhost:8002/v1/keys \
+curl -X POST http://localhost:8002/v1/admin/keys \
+  -H "Authorization: Bearer admin-secret-key-for-local-dev" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Production AI Agent",

@@ -28,6 +28,7 @@ type Config struct {
 	OpenAPIPath      string
 	DocsPath         string
 	KeyCacheTTL      time.Duration
+	AdminAPIKey      string
 	Routes           []*RouteConfig
 	ForwardTargetURL string
 }
@@ -38,6 +39,7 @@ func Load() (*Config, error) {
 	endpoint := os.Getenv("DYNAMODB_ENDPOINT")
 	region := cmp.Or(os.Getenv("AWS_REGION"), "ap-northeast-1")
 	tableName := cmp.Or(os.Getenv("TABLE_NAME"), "TollgateAPIKeys")
+	adminAPIKey := os.Getenv("ADMIN_API_KEY")
 
 	// OpenAPI & Docs パス正規化 (空文字でなければ先頭スラッシュ補完)
 	openapiPath := normalizePath(os.Getenv("OPENAPI_PATH"))
@@ -69,6 +71,7 @@ func Load() (*Config, error) {
 		OpenAPIPath:      openapiPath,
 		DocsPath:         docsPath,
 		KeyCacheTTL:      keyCacheTTL,
+		AdminAPIKey:      adminAPIKey,
 		Routes:           routes,
 		ForwardTargetURL: defaultTarget,
 	}, nil
