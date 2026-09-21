@@ -2,12 +2,10 @@ package usecase
 
 import (
 	"context"
-	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/google/uuid"
@@ -45,17 +43,10 @@ func GenerateRawKey() (string, error) {
 	return fmt.Sprintf("%s%s", RawKeyPrefix, hex.EncodeToString(bytes)), nil
 }
 
-// HashKey は平文キーの HMAC-SHA256 ダイジェスト文字列を生成する
+// HashKey は平文キーの SHA-256 ダイジェスト文字列を生成する
 func HashKey(rawKey string) string {
-	secret := os.Getenv("API_KEY_HASH_SECRET")
-	if secret == "" {
-		// フォールバック: 環境変数未設定時でも挙動を維持（本番では必ず設定すること）
-		secret = "default-api-key-hash-secret-change-me"
-	}
-
-	mac := hmac.New(sha256.New, []byte(secret))
-	mac.Write([]byte(rawKey))
-	return hex.EncodeToString(mac.Sum(nil))
+	hash := sha256.Sum256([]byte(rawKey))
+	return hex.EncodeToString(hash[:])
 }
 
 // CreateKey は新しい API キーを発行し、DynamoDB にハッシュを保存した上で平文キーを1度だけ返却する
