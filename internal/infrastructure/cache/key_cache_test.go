@@ -121,7 +121,7 @@ func TestCachedKeyRepository_PutKey(t *testing.T) {
 	newKey := &entity.APIKey{
 		PK:       "KEY#hash123",
 		KeyID:    "key-1",
-		IsActive: false, // Changed
+		IsActive: false,                  // Changed
 		Status:   entity.StatusSuspended, // Changed
 	}
 	err = cachedRepo.PutKey(ctx, newKey)
@@ -172,7 +172,7 @@ func TestCachedKeyRepository_PutKey_Error(t *testing.T) {
 	newKey := &entity.APIKey{
 		PK:       "KEY#hash123",
 		KeyID:    "key-1",
-		IsActive: false, // Changed
+		IsActive: false,                  // Changed
 		Status:   entity.StatusSuspended, // Changed
 	}
 	err = cachedRepo.PutKey(ctx, newKey)
