@@ -130,7 +130,7 @@ services:
     volumes:
       - ./deploy/monitoring/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
       - ./deploy/monitoring/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
-      - ./deploy/monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards/json:ro
+      - ./deploy/monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
     profiles:
       - monitor
     depends_on:
