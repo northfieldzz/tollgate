@@ -23,10 +23,12 @@ builds:
 archives:
   - id: tollgate-archive
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
-    format: tar.gz
+    formats:
+      - tar.gz
     format_overrides:
       - goos: windows
-        format: zip
+        formats:
+          - zip
     files:
       - README.md
       - LICENSE
@@ -38,11 +40,6 @@ checksum:
 
 release:
   mode: replace
-  header: |
-    ## Tollgate v{{ .Version }}
-
-  footer: |
-    **Full Changelog**: https://github.com/{{ .Repo.Owner }}/{{ .Repo.Name }}/compare/{{ .PreviousTag }}...{{ .Tag }}
 
 changelog:
   sort: asc
