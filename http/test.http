@@ -1,0 +1,163 @@
+### ====================================================
+### Tollgate API Test Suite
+### VS Code REST Client (humao.rest-client) 用
+###
+### 使い方:
+###   1. 各リクエストの上にある "Send Request" をクリック
+###   2. ① キー発行 → ② 以降は自動的に key_id / raw_key を引き継ぐ
+### ====================================================
+
+@baseUrl = http://localhost:8002
+@adminKey = admin-secret-key-for-local-dev
+
+# --------------------------------------------------
+# ① テナントキー発行（結果を後続リクエストで再利用）
+# --------------------------------------------------
+# @name createTenantKey
+POST {{baseUrl}}/v1/admin/keys
+Authorization: Bearer {{adminKey}}
+Content-Type: application/json
+
+{
+    "name": "Test Tenant Key",
+    "tenant_id": "tenant-test-01",
+    "service_id": "my-service",
+    "scopes": ["read:*", "write:*"],
+    "rate_limit_rpm": 60,
+    "monthly_quota": 10000
+}
+
+### --------------------------------------------------
+### ② キー一覧（テナント指定）
+### --------------------------------------------------
+GET {{baseUrl}}/v1/admin/keys?tenant_id=tenant-test-01
+Authorization: Bearer {{adminKey}}
+
+### --------------------------------------------------
+### ③ キー詳細取得（① の key_id を自動参照）
+### --------------------------------------------------
+GET {{baseUrl}}/v1/admin/keys/{{createTenantKey.response.body.key_id}}
+Authorization: Bearer {{adminKey}}
+
+### --------------------------------------------------
+### ④ キー設定変更（rate_limit_rpm を更新）
+### --------------------------------------------------
+PATCH {{baseUrl}}/v1/admin/keys/{{createTenantKey.response.body.key_id}}
+Authorization: Bearer {{adminKey}}
+Content-Type: application/json
+
+{
+    "rate_limit_rpm": 120
+}
+
+### --------------------------------------------------
+### ⑤ キー検証（① の raw_key を自動参照）
+### --------------------------------------------------
+POST {{baseUrl}}/v1/admin/verify
+Authorization: Bearer {{adminKey}}
+Content-Type: application/json
+
+{
+    "api_key": "{{createTenantKey.response.body.raw_key}}"
+}
+
+### --------------------------------------------------
+### ⑥ キーローテーション（新キー発行 & 旧キー猶予期間設定）
+### --------------------------------------------------
+# @name rotateKey
+POST {{baseUrl}}/v1/admin/keys/{{createTenantKey.response.body.key_id}}/rotate
+Authorization: Bearer {{adminKey}}
+Content-Type: application/json
+
+{
+    "grace_period_seconds": 300
+}
+
+### --------------------------------------------------
+### ⑦ キー一時停止
+### --------------------------------------------------
+POST {{baseUrl}}/v1/admin/keys/{{createTenantKey.response.body.key_id}}/suspend
+Authorization: Bearer {{adminKey}}
+
+### --------------------------------------------------
+### ⑧ キー再開
+### --------------------------------------------------
+POST {{baseUrl}}/v1/admin/keys/{{createTenantKey.response.body.key_id}}/resume
+Authorization: Bearer {{adminKey}}
+
+### --------------------------------------------------
+### ⑨ キー削除
+### --------------------------------------------------
+DELETE {{baseUrl}}/v1/admin/keys/{{createTenantKey.response.body.key_id}}
+Authorization: Bearer {{adminKey}}
+
+### ==================================================
+### プロキシ経由リクエスト（① の raw_key を自動参照）
+### ==================================================
+
+### ⑩ /llm プレフィックス経由
+POST {{baseUrl}}/llm/api/v1/sample
+Authorization: Bearer {{createTenantKey.response.body.raw_key}}
+Content-Type: application/json
+
+{
+    "message": "Hello via /llm"
+}
+
+### ⑪ /mcp プレフィックス経由
+POST {{baseUrl}}/mcp/api/v1/sample
+Authorization: Bearer {{createTenantKey.response.body.raw_key}}
+Content-Type: application/json
+
+{
+    "message": "Hello via /mcp"
+}
+
+### ==================================================
+### サービスキー（X-Tenant-ID をクライアント指定する場合）
+### ==================================================
+
+# @name createServiceKey
+POST {{baseUrl}}/v1/admin/keys
+Authorization: Bearer {{adminKey}}
+Content-Type: application/json
+
+{
+    "name": "Test Service Key",
+    "service_id": "my-service",
+    "key_type": "service",
+    "scopes": ["read:*"],
+    "rate_limit_rpm": 100
+}
+
+### ⑫ サービスキーでプロキシ（X-Tenant-ID を自分で指定）
+POST {{baseUrl}}/llm/api/v1/sample
+Authorization: Bearer {{createServiceKey.response.body.raw_key}}
+Content-Type: application/json
+X-Tenant-ID: tenant-test-01
+
+{
+    "message": "Hello with service key"
+}
+
+### ==================================================
+### ヘルスチェック
+### ==================================================
+
+### /livez
+GET {{baseUrl}}/livez
+
+### /readyz
+GET {{baseUrl}}/readyz
+
+### /healthz
+GET {{baseUrl}}/healthz
+
+### Prometheus メトリクス
+GET {{baseUrl}}/metrics
+
+### OpenAPI スキーマ（OPENAPI_PATH 設定時のみ有効）
+GET {{baseUrl}}/openapi.json
+
+### Scalar ドキュメント UI（DOCS_PATH 設定時のみ有効）
+GET {{baseUrl}}/docs

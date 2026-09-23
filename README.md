@@ -1,4 +1,4 @@
-# Tollgate — High-Performance API Gateway & Token Rate Limiter
+# Tollgate — Lightweight API Key Management & Rate Limiting Gateway
 
 [![Go](https://img.shields.io/badge/Go-1.24+-00ADD8?style=flat&logo=go)](https://golang.org/)
 [![Huma v2](https://img.shields.io/badge/Huma-v2.39+-8A2BE2.svg)](https://huma.rocks/)
@@ -7,10 +7,10 @@
 [![OpenAPI](https://img.shields.io/badge/OpenAPI-3.1-6BA539.svg?logo=openapiinitiative)](https://spec.openapis.org/oas/v3.1.0)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-**Tollgate** は、AI / マイクロサービス基盤向けの超高速・軽量なクラウドネイティブ API Gateway & トークンレートリミッターである。  
+**Tollgate** は、マルチテナント SaaS・マイクロサービス基盤向けの軽量な API キー管理 & レートリミッティング・リバースプロキシである。  
 マルチテナントに対応した API キー発行・ライフサイクル管理、スライディングウィンドウ方式による RPM 流量制御、月間クォータ管理、および動的マルチターゲット・リバースプロキシを単一バイナリ / コンテナで完結させる。
 
-[Portico (MCP Gateway)](https://github.com/northfieldzz/portico) や LLM Gateway、AI Engine などの上流に配置し、ダウンストリームサービスへの安全なテナントコンテキスト注入と不正アクセス遮断を実現する。
+[Portico (MCP Gateway)](https://github.com/northfieldzz/portico) や LLM Gateway など、AI エージェント基盤の手前に配置してテナントコンテキストの安全な注入に使うこともできる。
 
 ---
 
@@ -39,6 +39,21 @@
 - **セキュアな設計原則 (Fail-Fast)**:
   - 平文 API キーは一切保存せず、SHA-256 ダイジェストのみを永続化。平文キーは発行時・ローテーション時に 1 度だけ返却。
   - デフォルトのフォールバックシークレットをコード内にハードコードせず、未設定時は起動時・検証時に即座にエラーとする安全設計。
+
+---
+
+## 類似 OSS との比較
+
+> [!NOTE]
+> 下記はプロジェクト公式情報に基づく概要比較です。各プロジェクトは活発に開発されているため、最新の詳細は各公式ドキュメントで確認してください。
+
+|  | **Tollgate** | **Kong Gateway (OSS)** | **Tyk Gateway (OSS)** | **Unkey** |
+|:---|:---:|:---:|:---:|:---:|
+| **主要な外部依存** | DynamoDB のみ | PostgreSQL（Traditional モード）または DB-less | Redis / Valkey（必須） | MySQL 互換 DB |
+| **エディション分割** | なし（OSS 単一） | OSS 版と Enterprise 版で機能差あり | OSS 版と Enterprise 版で機能差あり（Dashboard 等） | コアは AGPL-3.0 |
+| **リバースプロキシ機能** | あり（単一バイナリで完結） | あり | あり | 主軸は API キー管理・認証（ゲートウェイ機能は付随） |
+| **デプロイの手軽さ** | 単一 Go バイナリ + DynamoDB | プラグイン学習コスト・複数コンポーネント構成 | Redis 必須・エコシステム全体の構築が必要 | Docker 対応、SQL DB 別途必要 |
+| **マルチテナント対応** | ネイティブ（テナント / サービスキー二段構成） | プラグイン設定で実現 | プラグイン設定で実現 | API キー単位での管理 |
 
 ---
 
