@@ -14,7 +14,7 @@
    │  1. API キーの妥当性検証・失効/有効期限チェック
    │  2. スコープ (Scope) 認可チェック
    │  3. レートリミット (RPM) / 月間クォータ (Quota) 消費・判定
-   │  4. 認証コンテキストヘッダーの注入 (X-Tenant-ID 等)
+   │  4. 認証コンテキストヘッダーの注入 (X-Tenant-ID / X-Service-ID 等)
    ▼
 [Backend Service (users-service / billing-service / etc.)]
       `X-Tenant-ID` に基づいてテナント固有リソースへのアクセスを制御
@@ -42,7 +42,7 @@ Tollgate リバースプロキシは、クライアントからのヘッダー�
 1. **テナントキー（API キーに `tenant_id` と `service_id` が設定されている場合）**:
    - クライアントが `X-Tenant-ID` を**指定しない**場合：キーの `tenant_id` を自動注入して下流へ転送。
    - クライアントが `X-Tenant-ID` を**指定し、キーと一致**する場合：正常通過。
-   - クライアントが `X-Tenant-ID` を**指定し、キーと不一致**場合：**`403 Forbidden` (`tenant_mismatch`)** で即座にリクエストを拒絶（なりすまし・設定ミスの防止）。
+   - クライアントが `X-Tenant-ID` を**指定し、キーと不一致**の場合：**`403 Forbidden` (`tenant_mismatch`)** で即座にリクエストを拒絶（なりすまし・設定ミスの防止）。
    - キーの `service_id` を `X-Service-ID` に自動注入（クライアント指定値と不一致の場合は **`403 Forbidden` (`service_mismatch`)** で拒絶）。
 2. **サービスキー（API キーに `tenant_id` が未設定、`service_id` が設定されている場合）**:
    - クライアントが `X-Tenant-ID` を**指定**した場合：クライアント指定値をそのまま透過フォワード。キーの `service_id` を `X-Service-ID` に自動注入（クライアント指定値と不一致の場合は **`403 Forbidden` (`service_mismatch`)** で拒絶）。
@@ -57,73 +57,48 @@ X-Tenant-ID: tenant_corp_abc123
 X-Key-ID: 550e8400-e29b-41d4-a716-446655440000
 X-Key-Prefix: tlge-live-8f9c
 X-Service-ID: billing-service
-Content-Type: application/json��与)** | 文字列 | 呼び出し元サービス識別子。API キー発行時に設定された `service_id` が常に付与される（クライアント指定値と不一致の場合は `403 Forbidden` で遮断）。 |
-
-### 2.1 認証コンテキスト解決 & コンフリクト検証ルール
-
-Tollgate リバースプロキシは、クライアントからのヘッダースプーフィング防止とマルチテナント透過連携を両立するため、以下のロジックでヘッダーを制御・検証する：
-
-1. **テナントキー（API キーに `tenant_id` と `service_id` が設定されている場合）**:
-   - クライアントが `X-Tenant-ID` を**指定しない**場合：キーの `tenant_id` を自動注入して下流へ転送。
-   - クライアントが `X-Tenant-ID` を**指定し、キーと一致**する場合：正常通過。
-   - クライアントが `X-Tenant-ID` を**指定し、キーと不一致**の場合：**`403 Forbidden` (`tenant_mismatch`)** で即座にリクエストを拒絶（なりすまし・設定ミスの防止）。
-   - キーの `service_id` を `X-Service-ID` に自動注入（クライアント指定値と不一致の場合は **`403 Forbidden` (`service_mismatch`)** で拒絶）。
-2. **サービスキー（API キーに `tenant_id` が未設定、`service_id` が設定されている場合）**:
-   - クライアントが `X-Tenant-ID` を**指定**した場合：クライアント指定値をそのまま透過フォワード。キーの `service_id` を `X-Service-ID` に自動注入（クライアント指定値と不一致の場合は **`403 Forbidden` (`service_mismatch`)** で拒絶）。
-   - クライアントが `X-Tenant-ID` を**未指定**の場合：**`400 Bad Request` (`missing_tenant_id`)** で拒絶（エンド顧客特定不可）。
-
-### ヘッダーの具体例
-
-```http
-POST /tools/list HTTP/1.1
-Host: mcp-gateway:8000
-X-Tenant-ID: tenant_corp_abc123
-X-Key-ID: 550e8400-e29b-41d4-a716-446655440000
-X-Key-Prefix: tlge-live-8f9c
-X-Service-ID: svc-mcp-cluster-1
 Content-Type: application/json
-...
 ```
 
 ---
 
-## 3. バックエンドサービス側の実装要件
+## 3. バックエンドサービスの実装要件
 
 ### 3.1 テナントコンテキストの取得
-- リクエストヘッダー `X-Tenant-ID` を取得し、後続の DB クエリやストレージアクセス時のパーティションキー / テナント分離キーとして必ず適用すること。
-- ヘッダーが存在しない、または空の場合は `401 Unauthorized` または `403 Forbidden` を返却する設計を推奨する（Tollgate 経由外からの不正アクセス防止）。
+- リクエストヘッダー `X-Tenant-ID` を取得し、後続の DB クエリ・ストレージアクセスのパーティションキー / テナントキーとして必ず適用すること。
+- ヘッダーが存在しない、または空の場合は `401 Unauthorized` または `403 Forbidden` を返却する設計を推奨（Tollgate 経由外の不正アクセス防止）。
 
 ### 3.2 API キーの再検証は不要
 - Tollgate を通過した時点で以下の検証は完了しているため、バックエンドサービス側で API キー自体の照合や DB 参照を行う必要はない。
   - API キーのハッシュ照合・存在確認
   - キーの失効（Revoke）/ 一時停止（Suspend）/ 有効期限チェック
-  - ルートに設定されたスコープ合致（Fast-Fail）
-  - 秒間/分間レートリミット（RPM）および月間クォータの残量判定
+  - ルートに設定されたスコープの充足確認（Fast-Fail）
+  - 分間レートリミット（RPM）および月間クォータの残数判定・消費
 
 ### 3.3 監査ログへの記録
-- ログを出力する際は、トレーサビリティ向上のため `tenant_id` (`X-Tenant-ID`) および `key_id` (`X-Key-ID`) を構造化ログのフィールドに含めることを推奨する。
+- ログ出力時は、トレーサビリティ向上のため `tenant_id` (`X-Tenant-ID`) と `key_id` (`X-Key-ID`) を構造化ログのフィールドに含めることを推奨。
 
 ### 3.4 パスプレフィックスの考慮
-- ルート設定で `strip_prefix: true` が指定されている場合、Tollgate でプレフィックスが除去された状態でバックエンドに到達する。
-  - 例: クライアントが `POST /mcp/v1/tools` へリクエスト → バックエンドには `POST /v1/tools` として到達。
-  - バックエンド側のルーター定義では、除去後のパス（例: `/v1/tools`）をリッスンするように構築する。
+- ルート設定で `strip_prefix: true` が指定されている場合、Tollgate 側でプレフィックスが除去された状態でバックエンドに到達する。
+  - 例: クライアントが `POST /billing/v1/invoices` へリクエスト → バックエンドには `POST /v1/invoices` として到達。
+  - バックエンド側のルーター定義では、除去後のパス（例: `/v1/invoices`）にマッチするように構築する。
 
 ---
 
 ## 4. セキュリティ注意事項
 
 > [!WARNING]
-> **ヘッダー偽装防止のためのネットワーク分離**
-> クライアントが直接バックエンドサービスのポートへアクセスできるネットワーク構成になっている場合、クライアント自身が `X-Tenant-ID` ヘッダーを偽装してなりすましを行うリスクがある。
-> バックエンドサービスは内部プライベートネットワーク（VPC / Docker 内部ネットワーク）内に配置し、**Tollgate からのインバウンド通信のみを許可**すること。
+> **ヘッダー偽装防止のためのネットワーク隔離**
+> クライアントから直接バックエンドサービスのポートへアクセスできるネットワーク構成になっている場合、クライアント自身が `X-Tenant-ID` ヘッダーを偽装してなりすましを行うリスクが生じる。
+> バックエンドサービスは内部プライベートネットワーク（VPC / Docker 内部ネットワーク）に配置し、**Tollgate からのインバウンド通信のみを許可**すること。
 
-なお、Tollgate 経由でリクエストが送られた場合、Tollgate はクライアントから送られてきた既存の `X-Tenant-ID` などのヘッダーを上書き (`r.Header.Set`) して転送するため、プロキシ経由時のヘッダー改ざんは防止される。
+なお、Tollgate 経由でリクエストされた場合、Tollgate はクライアントから送られてきた `X-Tenant-ID` などのヘッダーを上書き・検証 (`r.Header.Set`) して転送するため、プロキシ経由のヘッダー偽装は防止される。
 
 ---
 
 ## 5. 参考: クライアントに返却されるレートリミットヘッダー
 
-Tollgate はリクエスト検証時、クライアント向けのレスポンスヘッダーに流量情報を付与する。バックエンドサービス側で独自に付与する必要はない。
+Tollgate はリクエスト処理後、クライアントへのレスポンスヘッダーに流量情報を付与する。バックエンドサービス側で独自に付与する必要はない。
 
 | レスポンスヘッダー名 | 説明 |
 |---|---|
@@ -147,7 +122,7 @@ Content-Type: application/json
 
 {
   "raw_key": "tlge-live-8f9c2d1e0a4b3c5d6e7f8a9b0c1d2e3f",
-  "required_scope": "mcp:tools:execute"
+  "required_scope": "billing:invoices:write"
 }
 ```
 
@@ -158,12 +133,12 @@ Content-Type: application/json
   "key_id": "550e8400-e29b-41d4-a716-446655440000",
   "key_prefix": "tlge-live-8f9c",
   "tenant_id": "tenant_corp_abc123",
-  "service_id": "svc-mcp-cluster-1",
-  "scopes": ["mcp:*"],
+  "service_id": "billing-service",
+  "scopes": ["billing:*"],
   "remaining_rpm": 59,
   "limit_rpm": 60,
   "remaining_quota": 99500,
   "monthly_quota": 100000
 }
 ```
-※検証失敗時は `valid: false` となり、`reason`（例: `invalid_key`, `suspended`, `expired`, `scope_mismatch`, `rate_limit_exceeded`, `quota_exceeded`）が返却される。
+検証失敗時は `valid: false` となり、`reason`（例: `invalid_key`, `suspended`, `expired`, `scope_mismatch`, `rate_limit_exceeded`, `quota_exceeded`）が返却される。
