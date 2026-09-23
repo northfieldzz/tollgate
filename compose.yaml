@@ -9,7 +9,7 @@ services:
     env_file:
       - .env
     environment:
-      PORT: 8080  # ポートマッピングと合わせて明示的に指定
+      PORT: 8080 # ポートマッピングと合わせて明示的に指定
     depends_on:
       dynamodb:
         condition: service_started
@@ -55,7 +55,7 @@ services:
     image: redis:7-alpine
     ports:
       - "6379:6379"
-    command: redis-server --save "" --appendonly no  # 永続化なし (レートリミット用途)
+    command: redis-server --save "" --appendonly no # 永続化なし (レートリミット用途)
     profiles:
       - database
       - redis
@@ -105,3 +105,33 @@ services:
       - database
     depends_on:
       - dynamodb
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./deploy/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    profiles:
+      - monitor
+    depends_on:
+      - tollgate
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      - GF_AUTH_DISABLE_LOGIN_FORM=true
+    volumes:
+      - ./deploy/monitoring/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./deploy/monitoring/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./deploy/monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards/json:ro
+    profiles:
+      - monitor
+    depends_on:
+      - prometheus

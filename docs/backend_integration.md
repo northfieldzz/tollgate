@@ -112,7 +112,7 @@ Tollgate はリクエスト検証時、クライアント向けのレスポン�
 
 ## 6. 参考: スタンドアロン検証 API (`POST /v1/admin/verify`) 仕様
 
-プロキシモードを使用せず、各マイクロサービスが独自に Tollgate へ検証リクエストを行うアーキテクチャを採用する場合は、以下の API を呼び出して判定結果を取得する（`Authorization: Bearer <ADMIN_API_KEY>` または `X-Admin-Key: <ADMIN_API_KEY>` が必須）。
+プロキシモードを使用せず、各マイクロサービスが独自に Tollgate へ検証リクエストを行うアーキテクチャを採用する場合は、以下の API を呼び出して判定結果を取得する（`Authorization: Bearer <ADMIN_API_KEY>` が必須）。
 
 ### リクエスト
 `POST /v1/admin/verify`

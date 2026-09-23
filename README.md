@@ -171,7 +171,7 @@ tollgate/
 
 ### 1. 管理用 API キー操作 (`/v1/admin/keys`)
 > [!IMPORTANT]
-> `/v1/admin/*` 配下のエンドポイントはマスター管理者キー（`Authorization: Bearer <ADMIN_API_KEY>` または `X-Admin-Key: <ADMIN_API_KEY>`）による認証が必須です。
+> `/v1/admin/*` 配下のエンドポイントはマスター管理者キー（`Authorization: Bearer <ADMIN_API_KEY>`）による認証が必須です。
 
 | メソッド | パス | 説明 |
 |:---|:---|:---|
@@ -258,9 +258,17 @@ curl -i http://localhost:8002/livez
 curl -i http://localhost:8002/readyz
 ```
 
-- **Tollgate ゲートウェイ**: `http://localhost:8002`
-- **Scalar ドキュメント**: `http://localhost:8002/docs`
-- **DynamoDB Admin UI**: `http://localhost:8003`
+- **Tollgate ゲートウェイ**: `http://localhost:8080`
+- **Scalar ドキュメント**: `http://localhost:8080/docs`
+- **DynamoDB Admin UI**: `http://localhost:8001`
+
+#### Prometheus & Grafana メトリクス監視付きで起動する場合
+```bash
+# database + monitor プロファイルを指定して起動
+docker compose --profile database --profile monitor up -d
+```
+- **Grafana ダッシュボード**: `http://localhost:3000` (ログイン不要・Tollgate Overview ダッシュボード自動読み込み)
+- **Prometheus Web UI**: `http://localhost:9090`
 
 ### 2. ローカル環境での起動 (Go)
 
