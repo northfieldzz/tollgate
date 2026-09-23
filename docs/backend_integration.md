@@ -1,6 +1,6 @@
 # Tollgate 連携バックエンドサービス実装仕様書 (Backend Integration Guide)
 
-本書は、Tollgate のリバースプロキシ配下に配置される下流バックエンドサービス（例: `llm-gateway`, `mcp-gateway`, `ai-engine` 等）が、Tollgate から転送されるリクエストを処理するにあたって参照すべきヘッダー仕様および実装要件をまとめたドキュメントである。
+本書は、Tollgate のリバースプロキシ配下に配置される下流バックエンドサービス（例: `users-service`, `billing-service`, `analytics-service` 等）が、Tollgate から転送されるリクエストを処理するにあたって参照すべきヘッダー仕様および実装要件をまとめたドキュメントである。
 
 ---
 
@@ -16,7 +16,7 @@
    │  3. レートリミット (RPM) / 月間クォータ (Quota) 消費・判定
    │  4. 認証コンテキストヘッダーの注入 (X-Tenant-ID 等)
    ▼
-[Backend Service (llm-gateway / mcp-gateway / ai-engine / etc.)]
+[Backend Service (users-service / billing-service / etc.)]
       `X-Tenant-ID` に基づいてテナント固有リソースへのアクセスを制御
 ```
 
@@ -34,6 +34,30 @@ Tollgate での検証成功時、バックエンドサービスへ転送され�
 | `X-Key-ID` | **必須 (常に付与)** | 文字列 (UUID) | 使用された API キーの一意な ID。監査ログやキー単位の利用状況追跡に使用する。 |
 | `X-Key-Prefix` | **必須 (常に付与)** | 文字列 (例: `tlge-live-8f9c`) | API キーの先頭プレフィックス識別子。ログ出力やトラブルシューティングでのキー特定に使用する。 |
 | `X-Service-ID` | **必須 (常に付与)** | 文字列 | 呼び出し元サービス識別子。API キー発行時に設定された `service_id` が常に付与される（クライアント指定値と不一致の場合は `403 Forbidden` で遮断）。 |
+
+### 2.1 認証コンテキスト解決 & コンフリクト検証ルール
+
+Tollgate リバースプロキシは、クライアントからのヘッダースプーフィング防止とマルチテナント透過連携を両立するため、以下のロジックでヘッダーを制御・検証する：
+
+1. **テナントキー（API キーに `tenant_id` と `service_id` が設定されている場合）**:
+   - クライアントが `X-Tenant-ID` を**指定しない**場合：キーの `tenant_id` を自動注入して下流へ転送。
+   - クライアントが `X-Tenant-ID` を**指定し、キーと一致**する場合：正常通過。
+   - クライアントが `X-Tenant-ID` を**指定し、キーと不一致**場合：**`403 Forbidden` (`tenant_mismatch`)** で即座にリクエストを拒絶（なりすまし・設定ミスの防止）。
+   - キーの `service_id` を `X-Service-ID` に自動注入（クライアント指定値と不一致の場合は **`403 Forbidden` (`service_mismatch`)** で拒絶）。
+2. **サービスキー（API キーに `tenant_id` が未設定、`service_id` が設定されている場合）**:
+   - クライアントが `X-Tenant-ID` を**指定**した場合：クライアント指定値をそのまま透過フォワード。キーの `service_id` を `X-Service-ID` に自動注入（クライアント指定値と不一致の場合は **`403 Forbidden` (`service_mismatch`)** で拒絶）。
+   - クライアントが `X-Tenant-ID` を**未指定**の場合：**`400 Bad Request` (`missing_tenant_id`)** で拒絶（エンド顧客特定不可）。
+
+### ヘッダーの具体例
+
+```http
+POST /v1/invoices HTTP/1.1
+Host: billing-service:8000
+X-Tenant-ID: tenant_corp_abc123
+X-Key-ID: 550e8400-e29b-41d4-a716-446655440000
+X-Key-Prefix: tlge-live-8f9c
+X-Service-ID: billing-service
+Content-Type: application/json��与)** | 文字列 | 呼び出し元サービス識別子。API キー発行時に設定された `service_id` が常に付与される（クライアント指定値と不一致の場合は `403 Forbidden` で遮断）。 |
 
 ### 2.1 認証コンテキスト解決 & コンフリクト検証ルール
 

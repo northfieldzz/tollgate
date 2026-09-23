@@ -11,7 +11,7 @@
 **Tollgate** は、マルチテナント SaaS・マイクロサービス基盤向けの軽量な API キー管理 & レートリミッティング・リバースプロキシである。  
 マルチテナントに対応した API キー発行・ライフサイクル管理、スライディングウィンドウ方式による RPM 流量制御、月間クォータ管理、および動的マルチターゲット・リバースプロキシを単一バイナリ / コンテナで完結させる。
 
-[Portico (MCP Gateway)](https://github.com/northfieldzz/portico) や LLM Gateway など、AI エージェント基盤の手前に配置してテナントコンテキストの安全な注入に使うこともできる。
+各種マイクロサービスや外部公開 API の手前に配置し、クライアント認証・テナント分離・流量制御を一元管理する認証ゲートウェイとして機能する。
 
 ---
 
@@ -26,8 +26,8 @@
   - **Redis / Valkey**: 分散スケールアウト環境向けの共有スライディングウィンドウ。
   - **DynamoDB**: AWS 完全マネージドなアトミックカウンター（※ PostgreSQL との混在は非推奨）。
 - **動的マルチターゲット・リバースプロキシ**:
-  - パスプレフィックス（`/llm`, `/mcp`, `/ai` 等）に基づき、各バックエンドへ自動ルーティング。
-  - ルーティング単位での Prefix Stripping、スコープ検証（`llm:*`, `mcp:*` 等）を自動実行。
+  - パスプレフィックス（`/users`, `/billing`, `/analytics` 等）に基づき、各下流サービスへ自動ルーティング。
+  - ルーティング単位での Prefix Stripping、スコープ検証（`users:read`, `billing:write` 等）を自動実行。
   - プロキシ専用 HTTP トランスポートチューニングによる高並行・低遅延通信（コネクションプール最適化、TIME_WAIT 枯渇抑止）。
 - **堅牢なマルチテナント分離 & コンテキスト注入**:
   - **テナントキー**: `tenant_id` と `service_id` を保持。キーの `tenant_id` と `service_id` を下流へ `X-Tenant-ID` / `X-Service-ID` として確実に注入。クライアント指定値とのコンフリクト時は `403 Forbidden` で即座に遮断（Fail-Fast）。
@@ -79,16 +79,16 @@
 
 ```mermaid
 flowchart TD
-    Client["Client / SDK / AI Agent"]
+    Client["Client / Frontend / Microservice"]
     
-    subgraph TollgateCluster ["Tollgate (API Gateway : 8000)"]
+    subgraph TollgateCluster ["Tollgate (API Gateway : 8080)"]
         PROXY["Multi-Target Reverse Proxy"]
         
         subgraph Engine ["Core Engine"]
             VERIFY["API Key Verifier<br/>(SHA-256 Hash Matching)"]
-            LIMITER["Sliding Window Limiter<br/>(In-Memory RPM)"]
+            LIMITER["Rate Limiter<br/>(Memory / Redis / DynamoDB)"]
             CACHE["Key Metadata Cache<br/>(TTL Cache)"]
-            HEADER_INJECT["Context Injector<br/>(X-Tenant-ID / X-Key-ID)"]
+            HEADER_INJECT["Context Injector<br/>(X-Tenant-ID / X-Service-ID / X-Key-ID)"]
         end
 
         subgraph ManagementAPI ["Management API (Huma v2 - Protected by ADMIN_API_KEY)"]
@@ -98,13 +98,13 @@ flowchart TD
         end
     end
 
-    subgraph Storage ["Storage Layer"]
-        DDB[("Amazon DynamoDB<br/>• TollgateAPIKeys<br/>• GSI_TenantKeys")]
+    subgraph Storage ["Storage Layer (Selectable)"]
+        DB[("Database<br/>• SQLite (Single Binary)<br/>• PostgreSQL (RDBMS)<br/>• DynamoDB (Managed)")]
     end
 
-    subgraph Downstream ["Downstream Services (任意のバックエンド群)"]
-        SVC_A["Service A<br/>(例: Prefix /service-a 転送先)"]
-        SVC_B["Service B<br/>(例: Prefix /service-b 転送先)"]
+    subgraph Downstream ["Downstream Services (下流マイクロサービス群)"]
+        SVC_A["Users Service<br/>(例: Prefix /users 転送先)"]
+        SVC_B["Billing Service<br/>(例: Prefix /billing 転送先)"]
         SVC_N["Any Microservices...<br/>(PROXY_ROUTES 定義先)"]
     end
 
@@ -115,18 +115,18 @@ flowchart TD
     %% Internal Tollgate flows
     PROXY --> VERIFY
     VERIFY --> CACHE
-    CACHE -.->|"Cache Miss"| DDB
+    CACHE -.->|"Cache Miss"| DB
     VERIFY --> LIMITER
-    LIMITER -.->|"Quota Increment"| DDB
+    LIMITER -.->|"Quota Increment"| DB
     PROXY --> HEADER_INJECT
 
     %% Forwarding
-    HEADER_INJECT -->|"Prefix A マッチ (X-Tenant-ID 注入 / StripPrefix)"| SVC_A
-    HEADER_INJECT -->|"Prefix B マッチ (X-Tenant-ID 注入 / StripPrefix)"| SVC_B
+    HEADER_INJECT -->|"Prefix /users マッチ (X-Tenant-ID 注入 / StripPrefix)"| SVC_A
+    HEADER_INJECT -->|"Prefix /billing マッチ (X-Tenant-ID 注入 / StripPrefix)"| SVC_B
     HEADER_INJECT -->|"動的ルーティング転送"| SVC_N
 
-    KEY_MGMT --> DDB
-    HEALTH -.->|"Ping"| DDB
+    KEY_MGMT --> DB
+    HEALTH -.->|"Ping"| DB
 ```
 
 ---
@@ -287,14 +287,14 @@ go run cmd/server/main.go
 ### ① テナントキーの発行 (`POST /v1/admin/keys`)
 
 ```bash
-curl -X POST http://localhost:8002/v1/admin/keys \
+curl -X POST http://localhost:8080/v1/admin/keys \
   -H "Authorization: Bearer admin-secret-key-for-local-dev" \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "Production AI Agent",
-    "tenant_id": "dept-risk-01",
-    "service_id": "ai-engine",
-    "scopes": ["llm:*", "mcp:*"],
+    "name": "Billing Service Client",
+    "tenant_id": "tenant-corp-01",
+    "service_id": "billing-service",
+    "scopes": ["billing:read", "billing:write"],
     "rate_limit_rpm": 600,
     "monthly_quota": 100000
   }'
@@ -305,10 +305,10 @@ curl -X POST http://localhost:8002/v1/admin/keys \
 {
   "key_id": "55d20ba0-d2e7-495b-a1c9-af33bfdf8f55",
   "key_prefix": "tlge-live-ca20",
-  "name": "Production AI Agent",
-  "tenant_id": "dept-risk-01",
-  "service_id": "ai-engine",
-  "scopes": ["llm:*", "mcp:*"],
+  "name": "Billing Service Client",
+  "tenant_id": "tenant-corp-01",
+  "service_id": "billing-service",
+  "scopes": ["billing:read", "billing:write"],
   "rate_limit_rpm": 600,
   "monthly_quota": 100000,
   "status": "active",
@@ -323,13 +323,13 @@ curl -X POST http://localhost:8002/v1/admin/keys \
 発行した API キーを `Authorization: Bearer <raw_key>` に指定してリクエストを送信する。
 
 ```bash
-curl -X POST http://localhost:8002/mcp/v1/tools/execute \
+curl -X POST http://localhost:8080/billing/v1/invoices \
   -H "Authorization: Bearer tlge-live-ca20ceeb4561aef616268e2716ebb264" \
   -H "Content-Type: application/json" \
-  -d '{"tool_name": "slack_send_message", "arguments": {"channel": "#general", "text": "Hello!"}}'
+  -d '{"amount": 50000, "currency": "JPY"}'
 ```
 
-Tollgate がキー検証・RPM レートリミット消費・クォータ加算を実行し、Prefix (`/mcp`) を除去した上で `http://mcp-gateway:8000/v1/tools/execute` へ転送。下流サービスへ `X-Tenant-ID: dept-risk-01` を自動注入する。
+Tollgate がキー検証・RPM レートリミット消費・クォータ加算・スコープ（`billing:write` 等）認可を実行し、Prefix (`/billing`) を除去した上で `http://billing-service:8000/v1/invoices` へ転送。下流サービスへ `X-Tenant-ID: tenant-corp-01` および `X-Service-ID: billing-service` を自動注入する。
 
 ---
 
