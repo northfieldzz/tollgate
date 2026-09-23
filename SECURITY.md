@@ -1,21 +1,48 @@
-# Security Policy
+# セキュリティポリシー (Security Policy)
 
-## Supported Versions
+Tollgate はセキュリティと堅牢性を最優先に設計されています。本ドキュメントでは、サポート対象バージョンおよび脆弱性の報告手順について説明します。
 
-Use this section to tell people about which versions of your project are
-currently being supported with security updates.
+---
 
-| Version | Supported          |
-| ------- | ------------------ |
-| 5.1.x   | :white_check_mark: |
-| 5.0.x   | :x:                |
-| 4.0.x   | :white_check_mark: |
-| < 4.0   | :x:                |
+## サポート対象バージョン
 
-## Reporting a Vulnerability
+最新のマイナーバージョンおよびパッチバージョンに対してセキュリティアップデートを提供します。
 
-Use this section to tell people how to report a vulnerability.
+| バージョン | サポート状況 |
+|:---|:---:|
+| 1.x.x (最新) | :white_check_mark: サポート対象 |
+| < 1.0.0 | :x: サポート終了 |
 
-Tell them where to go, how often they can expect to get an update on a
-reported vulnerability, what to expect if the vulnerability is accepted or
-declined, etc.
+---
+
+## 脆弱性の報告手順
+
+Tollgate でセキュリティ上の脆弱性や懸念を発見した場合は、**公開の GitHub Issue や Pull Request を作成せず**、以下の手順で非公開にてご報告ください。
+
+1. **報告先**:
+   - [GitHub Security Advisories (非公開報告)](https://github.com/northfieldzz/tollgate/security/advisories/new) を通じてご連絡ください。
+   - またはメンテナー宛のメールアドレスにご連絡ください。
+
+2. **報告に含めていただきたい情報**:
+   - 脆弱性の概要および影響を受けるコンポーネント（例: 認証ヘッダー検証、レートリミット、DB 永続化層等）
+   - 再現手順（PoC、リクエスト例、設定ファイルの再現例など）
+   - 想定される影響範囲（なりすまし、認可バイパス、DoS 等）
+   - 可能であれば修正案や緩和策
+
+3. **対応プロセス**:
+   - 報告を受信後、通常 **48 時間以内** に受領確認と初期評価のご連絡を行います。
+   - 脆弱性の再現・修正パッチの開発・テストを非公開で行います。
+   - 修正が完了次第、パッチバージョンをリリースし、セキュリティアドバイザリを公開します。
+
+---
+
+## Tollgate のセキュリティ設計方針
+
+Tollgate では以下の原則に基づき安全なデフォルト動作（Secure-by-Default / Fail-Fast）を徹底しています：
+
+1. **API キーの平文非保存**:
+   - 永続化層（DynamoDB, PostgreSQL, SQLite）には SHA-256 ハッシュダイジェストのみを保存し、平文キーは一切保持しません。
+2. **フォールバックシークレットの排除 (Fail-Fast)**:
+   - マスター管理者キー（`ADMIN_API_KEY`）などの認証情報は、コード内に既知のデフォルト値をフォールバックとしてハードコードしていません。未設定時は安全のため起動時または検証時に即座に拒絶されます。
+3. **コンテキスト競合の即時遮断 (Strict Validation)**:
+   - クライアント指定の `X-Tenant-ID` / `X-Service-ID` と、API キーの属性値に不一致（コンフリクト）がある場合、暗黙的に上書きして処理を継続せず、`403 Forbidden` で即座にリクエストを拒絶します。

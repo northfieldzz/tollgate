@@ -1,4 +1,4 @@
-# Contributing to Tollgate
+# Tollgate コントリビューションガイド (Contributing Guide)
 
 Tollgate への貢献をご検討いただきありがとうございます！  
 バグ報告、機能提案、ドキュメントの改善、プルリクエストなど、あらゆるコントリビューションを歓迎します。

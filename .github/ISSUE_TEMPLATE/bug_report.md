@@ -1,38 +1,29 @@
 ---
-name: Bug report
-about: Create a report to help us improve
-title: ''
-labels: ''
+name: バグ報告 (Bug Report)
+about: 不具合や予期しない動作の報告
+title: '[BUG] '
+labels: 'bug'
 assignees: ''
-
 ---
 
-**Describe the bug**
-A clear and concise description of what the bug is.
+## 不具合の概要
+発生している不具合の簡潔な説明を記入してください。
 
-**To Reproduce**
-Steps to reproduce the behavior:
-1. Go to '...'
-2. Click on '....'
-3. Scroll down to '....'
-4. See error
+## 再現手順
+不具合を再現するための具体的な手順：
+1. 起動設定・環境変数: `DB_BACKEND=...`, `RATE_LIMIT_BACKEND=...`
+2. 送信したリクエスト: `curl -X POST ...`
+3. 発生したレスポンス / エラーログ:
 
-**Expected behavior**
-A clear and concise description of what you expected to happen.
+## 期待される動作
+本来期待される正しい動作やレスポンスを記入してください。
 
-**Screenshots**
-If applicable, add screenshots to help explain your problem.
+## 実行環境情報
+- Tollgate バージョン / コミットハッシュ: 
+- OS: [例: Linux (Ubuntu 22.04), macOS, Windows]
+- データベースバックエンド: [SQLite / PostgreSQL / DynamoDB]
+- レートリミットバックエンド: [In-Memory / Redis / DynamoDB]
+- Go バージョン (ローカル実行時): [例: go1.24.0]
 
-**Desktop (please complete the following information):**
- - OS: [e.g. iOS]
- - Browser [e.g. chrome, safari]
- - Version [e.g. 22]
-
-**Smartphone (please complete the following information):**
- - Device: [e.g. iPhone6]
- - OS: [e.g. iOS8.1]
- - Browser [e.g. stock browser, safari]
- - Version [e.g. 22]
-
-**Additional context**
-Add any other context about the problem here.
+## 補足情報・ログ
+追加のコンテキストやサーバーログがあれば貼り付けてください。

@@ -1,20 +1,20 @@
 ---
-name: Feature request
-about: Suggest an idea for this project
-title: ''
-labels: ''
+name: 機能提案 (Feature Request)
+about: 新機能の追加や改善に関する提案
+title: '[FEAT] '
+labels: 'enhancement'
 assignees: ''
-
 ---
 
-**Is your feature request related to a problem? Please describe.**
-A clear and concise description of what the problem is. Ex. I'm always frustrated when [...]
+## 解決したい課題・背景
+どのような課題やユースケースに対して機能追加・改善が必要か記入してください。
+（例: 「特定のパスプレフィックスに対してカスタムヘッダーを追加転送したいが、現在は対応していない」など）
 
-**Describe the solution you'd like**
-A clear and concise description of what you want to happen.
+## 提案する機能・解決策
+希望する機能や動作の詳細な仕様・イメージを記入してください。
 
-**Describe alternatives you've considered**
-A clear and concise description of any alternative solutions or features you've considered.
+## 検討した代替案
+検討した他の方法や回避策があれば記入してください。
 
-**Additional context**
-Add any other context or screenshots about the feature request here.
+## 補足情報
+追加の参考資料、設定イメージ、API 設計案などがあれば記入してください。
