@@ -36,6 +36,14 @@ archives:
 checksum:
   name_template: "checksums.txt"
 
+release:
+  mode: replace
+  header: |
+    ## Tollgate v{{ .Version }}
+
+  footer: |
+    **Full Changelog**: https://github.com/{{ .Repo.Owner }}/{{ .Repo.Name }}/compare/{{ .PreviousTag }}...{{ .Tag }}
+
 changelog:
   sort: asc
   filters:
