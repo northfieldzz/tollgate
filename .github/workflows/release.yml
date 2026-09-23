@@ -1,4 +1,4 @@
-name: Build and Push Docker Image
+name: Release (Binaries & Docker Image)
 
 on:
   push:
@@ -7,12 +7,38 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
-  packages: write
+  contents: write # GitHub Releases へのアセット・タグ作成権限
+  packages: write # GHCR への Docker イメージ push 権限
 
 jobs:
-  build-and-push:
-    name: Build & Push to GHCR
+  # 1. マルチプラットフォーム向けバイナリのビルド & GitHub Releases 公開
+  release-binaries:
+    name: Build & Release Binaries
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # GoReleaser のタグ・コミット履歴取得に必要
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: '~> v2'
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # 2. Multi-Arch Docker イメージのビルド & GHCR 公開
+  build-and-push-docker:
+    name: Build & Push Docker Image to GHCR
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code

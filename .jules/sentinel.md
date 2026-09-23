@@ -1,13 +1,16 @@
-## 2023-10-27 - [Log Injection in Proxy Handler]
-**Vulnerability:** Log Injection (CWE-117) via user-supplied URL path in `internal/delivery/http/proxy_handler.go`.
-**Learning:** `r.URL.Path` was being logged directly with `%s`. Malicious actors can use control characters like `\n` to forge logs.
-**Prevention:** Use `%q` to safely quote and escape strings when logging user input.
+# セキュリティ対策履歴 & 学習事項 (Security Sentinel Log)
 
-## 2023-10-27 - [Information Exposure in API Handlers]
-**Vulnerability:** Information Exposure (CWE-209) via `huma.Error500InternalServerError` and `huma.Error503ServiceUnavailable` passing internal errors to the client.
-**Learning:** By default, passing an `err` object to `huma.ErrorXXX` functions serializes the error details into the JSON response. This leaks sensitive information like database connection errors or internal system paths.
-**Prevention:** Always log the internal `err` securely on the server side using `log.Printf`, and pass only a generic error message (without the `err` object) to `huma.ErrorXXX` functions to ensure safe client responses.
-## 2023-10-27 - [Information Exposure in huma.Error400BadRequest]
-**Vulnerability:** Information Exposure (CWE-209) via `huma.Error400BadRequest` passing internal errors to the client.
-**Learning:** Passing an `err` object to `huma.ErrorXXX` functions serializes the error details into the JSON response. This leaks internal information.
-**Prevention:** Avoid passing the `err` object to `huma.ErrorXXX` functions and use a safe, generic error message.
+## 2023-10-27 - [プロキシハンドラーにおけるログインジェクション対策]
+- **脆弱性種別:** ログインジェクション (CWE-117) - `internal/delivery/http/proxy_handler.go` でのユーザー入力 URL パス出力
+- **背景・原因:** `r.URL.Path` を `%s` で直接ログ出力していたため、改行コード (`\n`) などの制御文字を用いてログを偽装されるリスクがあった。
+- **再発防止策:** ユーザー入力を含む文字列をログ出力する際は、常に `%q` を使用して安全にクォート・エスケープ処理を行うこと。
+
+## 2023-10-27 - [API ハンドラーにおける内部情報漏洩対策 (500 / 503)]
+- **脆弱性種別:** 情報漏洩 (CWE-209) - `huma.Error500InternalServerError` および `huma.Error503ServiceUnavailable` に内部エラーオブジェクトを渡すことによる情報露出
+- **背景・原因:** Huma の `huma.ErrorXXX` 関数に Go の内部 `err` オブジェクトを渡すと、クライアントへの JSON レスポンスにエラー詳細がシリアライズされ、DB 接続文字列や内部パスが漏洩するリスクがあった。
+- **再発防止策:** 内部エラー (`err`) はサーバー側で安全に `log.Printf` に記録し、クライアント向け `huma.ErrorXXX` 関数には内部 `err` を渡さず、汎用メッセージのみを返却すること。
+
+## 2023-10-27 - [huma.Error400BadRequest における内部情報漏洩対策]
+- **脆弱性種別:** 情報漏洩 (CWE-209) - `huma.Error400BadRequest` での内部エラー詳細露出
+- **背景・原因:** バリデーション以外の内部例外で `err` オブジェクトをそのまま渡すと内部実装詳細が露出する。
+- **再発防止策:** クライアントへは安全で汎用的なエラーメッセージのみを返し、詳細な原因ログはサーバー側でのみ記録すること。
