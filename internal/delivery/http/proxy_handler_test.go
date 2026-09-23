@@ -49,7 +49,7 @@ func (m *mockKeyRepo) Ping(ctx context.Context) error { return nil }
 
 func setupTestMultiProxy(t *testing.T, routes []*RouteConfig, defaultBackend http.HandlerFunc) (*MultiTargetProxy, *mockKeyRepo) {
 	repo := &mockKeyRepo{keys: make(map[string]*entity.APIKey)}
-	limiter := ratelimit.NewSlidingWindowLimiter(time.Minute)
+	limiter := ratelimit.NewInMemoryRateLimiter(time.Minute)
 	vUsecase := usecase.NewVerifyUsecase(repo, limiter)
 
 	var defURL string

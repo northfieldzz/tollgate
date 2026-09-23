@@ -8,7 +8,6 @@ import (
 	"github.com/northfieldzz/tollgate/internal/domain/entity"
 	"github.com/northfieldzz/tollgate/internal/domain/repository"
 	"github.com/northfieldzz/tollgate/internal/infrastructure/metrics"
-	"github.com/northfieldzz/tollgate/internal/infrastructure/ratelimit"
 )
 
 type updateLastUsedJob struct {
@@ -18,12 +17,12 @@ type updateLastUsedJob struct {
 
 type VerifyUsecase struct {
 	repo        repository.KeyRepository
-	limiter     *ratelimit.SlidingWindowLimiter
+	limiter     repository.RateLimiter
 	lastUsedMap sync.Map // keyHash -> time.Time (1分以内の重複更新をスロットリング)
 	updateChan  chan updateLastUsedJob
 }
 
-func NewVerifyUsecase(repo repository.KeyRepository, limiter *ratelimit.SlidingWindowLimiter) *VerifyUsecase {
+func NewVerifyUsecase(repo repository.KeyRepository, limiter repository.RateLimiter) *VerifyUsecase {
 	u := &VerifyUsecase{
 		repo:       repo,
 		limiter:    limiter,
@@ -154,8 +153,13 @@ func (u *VerifyUsecase) VerifyKey(ctx context.Context, input entity.VerifyKeyInp
 		}, nil
 	}
 
-	// 5. スライディングウィンドウ RPM レート判定
-	allowed, remainingRPM, _ := u.limiter.Allow(key.KeyID, key.RateLimitRPM)
+	// 5. RPM レート判定 (バックエンドは DI で切り替え可能)
+	allowed, remainingRPM, _, limErr := u.limiter.Allow(ctx, key.KeyID, key.RateLimitRPM)
+	if limErr != nil {
+		// フェイルオープン: バックエンドエラー時はレートリミットをスキップ
+		// (DynamoDBRateLimiter はエラー時に allowed=true を返すため通常ここには到達しないが念のため)
+		metrics.VerificationsTotal.WithLabelValues(tenantLabel, "allowed", "rate_limit_backend_error").Inc()
+	}
 	if !allowed {
 		metrics.VerificationsTotal.WithLabelValues(tenantLabel, "rejected", "rate_limit_exceeded").Inc()
 		metrics.RateLimitExceededTotal.WithLabelValues(tenantLabel, key.KeyPrefix).Inc()

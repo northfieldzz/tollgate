@@ -66,6 +66,11 @@ type Config struct {
 	AdminAPIKey      string
 	Routes           []*RouteConfig
 	ForwardTargetURL string
+	RateLimitBackend string // "memory" (default) | "dynamodb" | "redis"
+	// Redis 接続設定 (RATE_LIMIT_BACKEND=redis 時のみ使用)
+	RedisAddr     string // 例: "redis:6379"
+	RedisPassword string // 認証パスワード (不要な場合は空文字)
+	RedisDB       int    // 使用する DB 番号 (0−0, デフォルト: 0)
 }
 
 // Load は環境変数および設定ファイルから Config を構築する。
@@ -100,6 +105,19 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("failed to load proxy routes: %w", err)
 	}
 
+	// レートリミットバックエンド (memory | dynamodb | redis, デフォルト: memory)
+	rateLimitBackend := cmp.Or(os.Getenv("RATE_LIMIT_BACKEND"), "memory")
+
+	// Redis 接続設定
+	redisAddr := cmp.Or(os.Getenv("REDIS_ADDR"), "redis:6379")
+	redisPassword := os.Getenv("REDIS_PASSWORD")
+	redisDB := 0
+	if dbStr := os.Getenv("REDIS_DB"); dbStr != "" {
+		if db, err := strconv.Atoi(dbStr); err == nil {
+			redisDB = db
+		}
+	}
+
 	return &Config{
 		Port:             port,
 		DynamoDBEndpoint: endpoint,
@@ -111,6 +129,10 @@ func Load() (*Config, error) {
 		AdminAPIKey:      adminAPIKey,
 		Routes:           routes,
 		ForwardTargetURL: defaultTarget,
+		RateLimitBackend: rateLimitBackend,
+		RedisAddr:        redisAddr,
+		RedisPassword:    redisPassword,
+		RedisDB:          redisDB,
 	}, nil
 }
 

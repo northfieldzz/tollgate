@@ -7,8 +7,21 @@ import (
 	"time"
 
 	"github.com/northfieldzz/tollgate/internal/domain/entity"
-	"github.com/northfieldzz/tollgate/internal/infrastructure/ratelimit"
+	"github.com/northfieldzz/tollgate/internal/domain/repository"
 )
+
+// MockRateLimiter implements repository.RateLimiter for testing.
+type MockRateLimiter struct {
+	AllowFunc func(ctx context.Context, id string, limitRPM int) (bool, int, time.Duration, error)
+}
+
+func (m *MockRateLimiter) Allow(ctx context.Context, id string, limitRPM int) (bool, int, time.Duration, error) {
+	if m.AllowFunc != nil {
+		return m.AllowFunc(ctx, id, limitRPM)
+	}
+	// デフォルト: 常に許可
+	return true, limitRPM, time.Minute, nil
+}
 
 // MockKeyRepository implements repository.KeyRepository for testing.
 type MockKeyRepository struct {
@@ -71,12 +84,15 @@ func (m *MockKeyRepository) Ping(ctx context.Context) error {
 }
 
 func TestVerifyUsecase_VerifyKey(t *testing.T) {
-	limiter := ratelimit.NewSlidingWindowLimiter(time.Minute)
-	defer limiter.Stop()
+	// デフォルトのモック: 常に許可
+	defaultLimiter := &MockRateLimiter{}
 
-	// 枯渇させるキー
-	limiter.Allow("exhausted-rpm", 1) // これで残り0
-	limiter.Allow("exhausted-rpm", 1) // これで超過
+	// RPM 超過テスト用のモック: 常に拒否
+	rateLimitExceededLimiter := &MockRateLimiter{
+		AllowFunc: func(ctx context.Context, id string, limitRPM int) (bool, int, time.Duration, error) {
+			return false, 0, time.Second * 30, nil
+		},
+	}
 
 	now := time.Now()
 	pastUnix := now.Add(-time.Hour).Unix()
@@ -255,6 +271,11 @@ func TestVerifyUsecase_VerifyKey(t *testing.T) {
 			repo := &MockKeyRepository{
 				GetKeyByHashFunc:          tc.mockGetKey,
 				IncrementMonthlyUsageFunc: tc.mockIncUsage,
+			}
+			// Rate Limit Exceeded テストのみ常に拒否する limiter を使用する
+			var limiter repository.RateLimiter = defaultLimiter
+			if tc.name == "Rate Limit Exceeded" {
+				limiter = rateLimitExceededLimiter
 			}
 			uc := NewVerifyUsecase(repo, limiter)
 

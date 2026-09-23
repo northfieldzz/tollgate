@@ -15,6 +15,7 @@ import (
 	awsConfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/redis/go-redis/v9"
 	"github.com/northfieldzz/tollgate/internal/config"
 	deliveryHttp "github.com/northfieldzz/tollgate/internal/delivery/http"
 	"github.com/northfieldzz/tollgate/internal/domain/repository"
@@ -65,8 +66,30 @@ func main() {
 		repo = cache.NewCachedKeyRepository(repo, cfg.KeyCacheTTL)
 	}
 
-	limiter := ratelimit.NewSlidingWindowLimiter(time.Minute)
-	defer limiter.Stop()
+	// 4. レートリミッター初期化 (RATE_LIMIT_BACKEND に応じてバックエンドを切り替え)
+	var limiter repository.RateLimiter
+	switch cfg.RateLimitBackend {
+	case "dynamodb":
+		log.Printf("[tollgate] Rate limiter backend: DynamoDB (Fixed Window, table=%s)", cfg.TableName)
+		limiter = ratelimit.NewDynamoDBRateLimiter(dynamoClient, cfg.TableName)
+	case "redis":
+		log.Printf("[tollgate] Rate limiter backend: Redis (Sliding Window, addr=%s, db=%d)", cfg.RedisAddr, cfg.RedisDB)
+		redisClient := redis.NewClient(&redis.Options{
+			Addr:     cfg.RedisAddr,
+			Password: cfg.RedisPassword,
+			DB:       cfg.RedisDB,
+		})
+		// 起動時に接続確認 (未接続の場合は Fail-Fast)
+		if err := redisClient.Ping(context.Background()).Err(); err != nil {
+			log.Fatalf("[tollgate] Failed to connect to Redis (%s): %v", cfg.RedisAddr, err)
+		}
+		limiter = ratelimit.NewRedisRateLimiter(redisClient, time.Minute)
+	default:
+		log.Printf("[tollgate] Rate limiter backend: InMemory (Sliding Window) — not suitable for scale-out")
+		inMemoryLimiter := ratelimit.NewInMemoryRateLimiter(time.Minute)
+		defer inMemoryLimiter.Stop()
+		limiter = inMemoryLimiter
+	}
 
 	keyUsecase := usecase.NewKeyUsecase(repo)
 	verifyUsecase := usecase.NewVerifyUsecase(repo, limiter)
