@@ -66,11 +66,14 @@ type Config struct {
 	AdminAPIKey      string
 	Routes           []*RouteConfig
 	ForwardTargetURL string
+	DBBackend        string // "dynamodb" (default) | "sqlite" | "postgres"
+	SQLitePath       string // default: "./tollgate.db"
+	PostgresDSN      string // e.g. "postgres://user:pass@localhost:5432/tollgate?sslmode=disable"
 	RateLimitBackend string // "memory" (default) | "dynamodb" | "redis"
-	// Redis 接続設定 (RATE_LIMIT_BACKEND=redis 時のみ使用)
+	// Redis / Valkey 接続設定 (RATE_LIMIT_BACKEND=redis 時のみ使用)
 	RedisAddr     string // 例: "redis:6379"
 	RedisPassword string // 認証パスワード (不要な場合は空文字)
-	RedisDB       int    // 使用する DB 番号 (0−0, デフォルト: 0)
+	RedisDB       int    // 使用する DB 番号 (0-15, デフォルト: 0)
 }
 
 // Load は環境変数および設定ファイルから Config を構築する。
@@ -105,8 +108,18 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("failed to load proxy routes: %w", err)
 	}
 
+	// DB バックエンド (dynamodb | sqlite | postgres, デフォルト: dynamodb)
+	dbBackend := strings.ToLower(cmp.Or(os.Getenv("DB_BACKEND"), "dynamodb"))
+	sqlitePath := cmp.Or(os.Getenv("SQLITE_PATH"), "./tollgate.db")
+	postgresDSN := cmp.Or(os.Getenv("POSTGRES_DSN"), os.Getenv("DATABASE_URL"))
+
 	// レートリミットバックエンド (memory | dynamodb | redis, デフォルト: memory)
-	rateLimitBackend := cmp.Or(os.Getenv("RATE_LIMIT_BACKEND"), "memory")
+	rateLimitBackend := strings.ToLower(cmp.Or(os.Getenv("RATE_LIMIT_BACKEND"), "memory"))
+
+	// SQLite の場合は外部依存ゼロ・キャッシュなし・レートリミット memory を強制
+	if dbBackend == "sqlite" {
+		rateLimitBackend = "memory"
+	}
 
 	// Redis 接続設定
 	redisAddr := cmp.Or(os.Getenv("REDIS_ADDR"), "redis:6379")
@@ -129,6 +142,9 @@ func Load() (*Config, error) {
 		AdminAPIKey:      adminAPIKey,
 		Routes:           routes,
 		ForwardTargetURL: defaultTarget,
+		DBBackend:        dbBackend,
+		SQLitePath:       sqlitePath,
+		PostgresDSN:      postgresDSN,
 		RateLimitBackend: rateLimitBackend,
 		RedisAddr:        redisAddr,
 		RedisPassword:    redisPassword,

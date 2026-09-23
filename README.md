@@ -2,7 +2,8 @@
 
 [![Go](https://img.shields.io/badge/Go-1.24+-00ADD8?style=flat&logo=go)](https://golang.org/)
 [![Huma v2](https://img.shields.io/badge/Huma-v2.39+-8A2BE2.svg)](https://huma.rocks/)
-[![Amazon DynamoDB](https://img.shields.io/badge/DynamoDB-Local%2FAWS-4053D6.svg?logo=amazondynamodb)](https://aws.amazon.com/dynamodb/)
+[![DynamoDB](https://img.shields.io/badge/Storage-DynamoDB%20%7C%20PostgreSQL%20%7C%20SQLite-4053D6.svg)](https://aws.amazon.com/dynamodb/)
+[![Redis / Valkey](https://img.shields.io/badge/RateLimit-Memory%20%7C%20Redis%20%7C%20Valkey-DC382D.svg)](https://valkey.io/)
 [![Prometheus](https://img.shields.io/badge/Prometheus-Metrics-E6522C.svg?logo=prometheus)](https://prometheus.io/)
 [![OpenAPI](https://img.shields.io/badge/OpenAPI-3.1-6BA539.svg?logo=openapiinitiative)](https://spec.openapis.org/oas/v3.1.0)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
@@ -16,6 +17,14 @@
 
 ## 主な機能
 
+- **マルチストレージ & ゼロ依存起動モード**:
+  - **DynamoDB**: AWS 完全マネージド、GSI スパースインデックス対応。
+  - **PostgreSQL**: リレーショナル DB での運用（pgx 経由、コネクションプール最適化）。
+  - **SQLite**: CGO 不要ピュア Go 実装。外部コンテナなし・バイナリ 1 本で即座に起動可能（開発・PoC・シングルノード用途に最適）。
+- **柔軟なレートリミットバックエンド**:
+  - **In-Memory**: 超低遅延なスライディングウィンドウカウンター（SQLite モード時は自動固定）。
+  - **Redis / Valkey**: 分散スケールアウト環境向けの共有スライディングウィンドウ。
+  - **DynamoDB**: AWS 完全マネージドなアトミックカウンター（※ PostgreSQL との混在は非推奨）。
 - **動的マルチターゲット・リバースプロキシ**:
   - パスプレフィックス（`/llm`, `/mcp`, `/ai` 等）に基づき、各バックエンドへ自動ルーティング。
   - ルーティング単位での Prefix Stripping、スコープ検証（`llm:*`, `mcp:*` 等）を自動実行。
@@ -24,14 +33,10 @@
   - **テナントキー**: `tenant_id` と `service_id` を保持。キーの `tenant_id` と `service_id` を下流へ `X-Tenant-ID` / `X-Service-ID` として確実に注入。クライアント指定値とのコンフリクト時は `403 Forbidden` で即座に遮断（Fail-Fast）。
   - **サービスキー**: `service_id` を保持し、クライアントが指定した動的 `X-Tenant-ID` を透過フォワード（未指定時は `400 Bad Request`）。下流にサービス識別子（`X-Service-ID`）を注入。
 - **高スループット・レートリミット & クォータ制御**:
-  - **分間レートリミット (RPM)**: インメモリ・スライディングウィンドウカウンターによる超低レイテンシなリアルタイム流量制限。
-  - **月間クォータ**: DynamoDB アトミックカウンター（`ADD`）による月間利用回数の確実な集計と上限超過検知。
+  - **分間レートリミット (RPM)**: スライディングウィンドウカウンターによる超低レイテンシなリアルタイム流量制限。
+  - **月間クォータ**: アトミックカウンターによる月間利用回数の確実な集計と上限超過検知。
 - **ゼロダウンタイム・キーローテーション**:
   - `POST /v1/admin/keys/{key_id}/rotate` により、旧キーの失効猶予期間（Grace Period）を保ちながら新キーを発行。クライアント側の無停止キー切り替えを支援。
-- **DynamoDB 永続化 & スパースインデックス**:
-  - `pk` (`KEY#<sha256_hash>`) による $O(1)$ の高速検索。
-  - グローバルセカンダリインデックス（`GSI_TenantKeys`）によるテナント単位のキー一覧高速検索。
-  - サービスキー時は `tenant_id` 属性を省略（Sparse Index）し、DynamoDB 制約に完全準拠。
 - **クラウドネイティブ・オブザーバビリティ**:
   - **Kubernetes 標準プローブ**: `/livez`（Liveness）、`/readyz`（Readiness / DB 接続確認）、`/healthz`（総合確認）。
   - **Prometheus メトリクス**: `/metrics` で各種リクエスト数・レイテンシを公開。
@@ -39,6 +44,19 @@
 - **セキュアな設計原則 (Fail-Fast)**:
   - 平文 API キーは一切保存せず、SHA-256 ダイジェストのみを永続化。平文キーは発行時・ローテーション時に 1 度だけ返却。
   - デフォルトのフォールバックシークレットをコード内にハードコードせず、未設定時は起動時・検証時に即座にエラーとする安全設計。
+
+---
+
+## バックエンド組み合わせ
+
+| DB バックエンド (`DB_BACKEND`) | レートリミット (`RATE_LIMIT_BACKEND`) | キャッシュ層 | 推奨用途 |
+|:---|:---|:---:|:---|
+| `sqlite` | `memory` (固定) | なし (ダイレクト) | **ゼロ外部依存・ローカル開発・PoC・単一バイナリ起動** |
+| `dynamodb` | `memory` (デフォルト) または `redis` / `dynamodb` | あり | **AWS ネイティブ・サーバーレス構成** |
+| `postgres` | `redis` (推奨) または `memory` | あり | **汎用 RDBMS・分散スケールアウト構成** |
+
+> [!NOTE]
+> `DB_BACKEND=postgres` かつ `RATE_LIMIT_BACKEND=dynamodb` の組み合わせは技術的には動作しますが、クラウド依存が混在するため**非推奨**です。PostgreSQL 採用時は `redis`（または `memory`）をご利用ください。
 
 ---
 
@@ -195,6 +213,13 @@ tollgate/
 | 変数名 | デフォルト値 | 必須 | 説明 |
 |:---|:---|:---:|:---|
 | `ADMIN_API_KEY` | *(空)* | 推奨 | 管理用 WebAPI (`/v1/admin/*`) を保護するマスターキー。未設定時は管理 API が 401 で遮断される (Fail-Fast) |
+| `DB_BACKEND` | `dynamodb` | 任意 | DB バックエンド (`dynamodb`, `sqlite`, `postgres`) |
+| `SQLITE_PATH` | `./tollgate.db` | 任意 | SQLite データベースファイルパス (`DB_BACKEND=sqlite` 時) |
+| `POSTGRES_DSN` | *(空)* | 任意 | PostgreSQL 接続 DSN (`DB_BACKEND=postgres` 時。`DATABASE_URL` も利用可) |
+| `RATE_LIMIT_BACKEND`| `memory` | 任意 | レートリミットバックエンド (`memory`, `redis`, `dynamodb`) |
+| `REDIS_ADDR` | `redis:6379` | 任意 | Redis / Valkey ホスト・ポート (`RATE_LIMIT_BACKEND=redis` 時) |
+| `REDIS_PASSWORD` | *(空)* | 任意 | Redis / Valkey 認証パスワード |
+| `REDIS_DB` | `0` | 任意 | Redis / Valkey DB 番号 |
 | `PORT` | `8000` | 任意 | HTTP サーバーのリッスンポート |
 | `AWS_REGION` | `ap-northeast-1` | 任意 | DynamoDB 接続リージョン |
 | `TABLE_NAME` | `TollgateAPIKeys` | 任意 | API キー管理用 DynamoDB テーブル名 |

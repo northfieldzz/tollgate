@@ -22,6 +22,7 @@ import (
 	"github.com/northfieldzz/tollgate/internal/infrastructure/cache"
 	infraDynamo "github.com/northfieldzz/tollgate/internal/infrastructure/dynamodb"
 	"github.com/northfieldzz/tollgate/internal/infrastructure/ratelimit"
+	"github.com/northfieldzz/tollgate/internal/infrastructure/sqlrepo"
 	"github.com/northfieldzz/tollgate/internal/usecase"
 )
 
@@ -32,48 +33,89 @@ func main() {
 		log.Fatalf("[tollgate] Failed to load configuration: %v", err)
 	}
 
-	log.Printf("[tollgate] Initializing with Region=%s, Endpoint=%s, Table=%s, CacheTTL=%v",
-		cfg.AWSRegion, cfg.DynamoDBEndpoint, cfg.TableName, cfg.KeyCacheTTL)
+	log.Printf("[tollgate] Initializing with DBBackend=%s, RateLimitBackend=%s",
+		cfg.DBBackend, cfg.RateLimitBackend)
 
-	// 2. AWS SDK 初期化 (ローカル開発時のみダミークレデンシャルを適用)
-	var optFns []func(*awsConfig.LoadOptions) error
-	optFns = append(optFns, awsConfig.WithRegion(cfg.AWSRegion))
+	var (
+		repo         repository.KeyRepository
+		dynamoClient *dynamodb.Client
+	)
 
-	if cfg.DynamoDBEndpoint != "" {
-		customResolver := aws.EndpointResolverWithOptionsFunc(func(service, reg string, options ...interface{}) (aws.Endpoint, error) {
-			return aws.Endpoint{
-				PartitionID:   "aws",
-				URL:           cfg.DynamoDBEndpoint,
-				SigningRegion: cfg.AWSRegion,
-			}, nil
-		})
-		optFns = append(optFns,
-			awsConfig.WithEndpointResolverWithOptions(customResolver),
-			awsConfig.WithCredentialsProvider(credentials.NewStaticCredentialsProvider("dummy", "dummy", "")),
-		)
+	// 2. DynamoDB クライアントの初期化 (DBBackend=dynamodb または RateLimitBackend=dynamodb の場合のみ)
+	if cfg.DBBackend == "dynamodb" || cfg.RateLimitBackend == "dynamodb" {
+		log.Printf("[tollgate] Initializing AWS DynamoDB (Region=%s, Endpoint=%s, Table=%s)",
+			cfg.AWSRegion, cfg.DynamoDBEndpoint, cfg.TableName)
+
+		var optFns []func(*awsConfig.LoadOptions) error
+		optFns = append(optFns, awsConfig.WithRegion(cfg.AWSRegion))
+
+		if cfg.DynamoDBEndpoint != "" {
+			customResolver := aws.EndpointResolverWithOptionsFunc(func(service, reg string, options ...interface{}) (aws.Endpoint, error) {
+				return aws.Endpoint{
+					PartitionID:   "aws",
+					URL:           cfg.DynamoDBEndpoint,
+					SigningRegion: cfg.AWSRegion,
+				}, nil
+			})
+			optFns = append(optFns,
+				awsConfig.WithEndpointResolverWithOptions(customResolver),
+				awsConfig.WithCredentialsProvider(credentials.NewStaticCredentialsProvider("dummy", "dummy", "")),
+			)
+		}
+
+		awsCfg, err := awsConfig.LoadDefaultConfig(context.Background(), optFns...)
+		if err != nil {
+			log.Fatalf("failed to load AWS config: %v", err)
+		}
+		dynamoClient = dynamodb.NewFromConfig(awsCfg)
 	}
 
-	awsCfg, err := awsConfig.LoadDefaultConfig(context.Background(), optFns...)
-	if err != nil {
-		log.Fatalf("failed to load AWS config: %v", err)
-	}
+	// 3. データベースリポジトリの初期化
+	switch cfg.DBBackend {
+	case "sqlite":
+		log.Printf("[tollgate] DB Backend: SQLite (path=%s, zero-dependency, cache=disabled)", cfg.SQLitePath)
+		sqliteRepo, err := sqlrepo.NewSQLiteRepository(context.Background(), cfg.SQLitePath)
+		if err != nil {
+			log.Fatalf("[tollgate] Failed to initialize SQLite repository: %v", err)
+		}
+		repo = sqliteRepo
+		// SQLite はキャッシュなし (ダイレクトアクセス)
 
-	dynamoClient := dynamodb.NewFromConfig(awsCfg)
+	case "postgres":
+		log.Printf("[tollgate] DB Backend: PostgreSQL")
+		if cfg.PostgresDSN == "" {
+			log.Fatalf("[tollgate] POSTGRES_DSN (or DATABASE_URL) must be set when DB_BACKEND=postgres")
+		}
+		pgRepo, err := sqlrepo.NewPostgresRepository(context.Background(), cfg.PostgresDSN)
+		if err != nil {
+			log.Fatalf("[tollgate] Failed to initialize PostgreSQL repository: %v", err)
+		}
+		repo = pgRepo
+		if cfg.KeyCacheTTL > 0 {
+			repo = cache.NewCachedKeyRepository(repo, cfg.KeyCacheTTL)
+		}
 
-	// 3. リポジトリ・キャッシュ・ユースケース初期化
-	var repo repository.KeyRepository = infraDynamo.NewDynamoDBRepository(dynamoClient, cfg.TableName)
-	if cfg.KeyCacheTTL > 0 {
-		repo = cache.NewCachedKeyRepository(repo, cfg.KeyCacheTTL)
+	case "dynamodb":
+		fallthrough
+	default:
+		log.Printf("[tollgate] DB Backend: DynamoDB (table=%s, CacheTTL=%v)", cfg.TableName, cfg.KeyCacheTTL)
+		repo = infraDynamo.NewDynamoDBRepository(dynamoClient, cfg.TableName)
+		if cfg.KeyCacheTTL > 0 {
+			repo = cache.NewCachedKeyRepository(repo, cfg.KeyCacheTTL)
+		}
 	}
 
 	// 4. レートリミッター初期化 (RATE_LIMIT_BACKEND に応じてバックエンドを切り替え)
 	var limiter repository.RateLimiter
 	switch cfg.RateLimitBackend {
 	case "dynamodb":
+		if dynamoClient == nil {
+			log.Fatalf("[tollgate] DynamoDB client is not available for rate limiter")
+		}
 		log.Printf("[tollgate] Rate limiter backend: DynamoDB (Fixed Window, table=%s)", cfg.TableName)
 		limiter = ratelimit.NewDynamoDBRateLimiter(dynamoClient, cfg.TableName)
 	case "redis":
-		log.Printf("[tollgate] Rate limiter backend: Redis (Sliding Window, addr=%s, db=%d)", cfg.RedisAddr, cfg.RedisDB)
+		log.Printf("[tollgate] Rate limiter backend: Redis / Valkey (Sliding Window, addr=%s, db=%d)", cfg.RedisAddr, cfg.RedisDB)
 		redisClient := redis.NewClient(&redis.Options{
 			Addr:     cfg.RedisAddr,
 			Password: cfg.RedisPassword,
@@ -81,11 +123,11 @@ func main() {
 		})
 		// 起動時に接続確認 (未接続の場合は Fail-Fast)
 		if err := redisClient.Ping(context.Background()).Err(); err != nil {
-			log.Fatalf("[tollgate] Failed to connect to Redis (%s): %v", cfg.RedisAddr, err)
+			log.Fatalf("[tollgate] Failed to connect to Redis/Valkey (%s): %v", cfg.RedisAddr, err)
 		}
 		limiter = ratelimit.NewRedisRateLimiter(redisClient, time.Minute)
 	default:
-		log.Printf("[tollgate] Rate limiter backend: InMemory (Sliding Window) — not suitable for scale-out")
+		log.Printf("[tollgate] Rate limiter backend: InMemory (Sliding Window)")
 		inMemoryLimiter := ratelimit.NewInMemoryRateLimiter(time.Minute)
 		defer inMemoryLimiter.Stop()
 		limiter = inMemoryLimiter

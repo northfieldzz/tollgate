@@ -58,6 +58,26 @@ services:
     command: redis-server --save "" --appendonly no  # 永続化なし (レートリミット用途)
     profiles:
       - database
+      - redis
+
+  valkey:
+    image: valkey/valkey:8-alpine
+    ports:
+      - "6379:6379"
+    command: valkey-server --save "" --appendonly no
+    profiles:
+      - valkey
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: tollgate
+    ports:
+      - "5432:5432"
+    profiles:
+      - postgres
 
   dynamodb-init:
     image: amazon/aws-cli:latest
