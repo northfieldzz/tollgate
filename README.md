@@ -6,7 +6,7 @@
 [![Redis / Valkey](https://img.shields.io/badge/RateLimit-Memory%20%7C%20Redis%20%7C%20Valkey-DC382D.svg)](https://valkey.io/)
 [![Prometheus](https://img.shields.io/badge/Prometheus-Metrics-E6522C.svg?logo=prometheus)](https://prometheus.io/)
 [![OpenAPI](https://img.shields.io/badge/OpenAPI-3.1-6BA539.svg?logo=openapiinitiative)](https://spec.openapis.org/oas/v3.1.0)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-MPL--2.0-blue.svg)](LICENSE)
 
 **Tollgate** は、マルチテナント SaaS・マイクロサービス基盤向けの軽量な API キー管理 & レートリミッティング・リバースプロキシである。  
 マルチテナントに対応した API キー発行・ライフサイクル管理、スライディングウィンドウ方式による RPM 流量制御、月間クォータ管理、および動的マルチターゲット・リバースプロキシを単一バイナリ / コンテナで完結させる。
@@ -47,31 +47,81 @@
 
 ---
 
-## バックエンド組み合わせ
+## ストレージ・レートリミット別の役割マトリクス
 
-| DB バックエンド (`DB_BACKEND`) | レートリミット (`RATE_LIMIT_BACKEND`) | キャッシュ層 | 推奨用途 |
-|:---|:---|:---:|:---|
-| `sqlite` | `memory` (固定) | なし (ダイレクト) | **ゼロ外部依存・ローカル開発・PoC・単一バイナリ起動** |
-| `dynamodb` | `memory` (デフォルト) または `redis` / `dynamodb` | あり | **AWS ネイティブ・サーバーレス構成** |
-| `postgres` | `redis` (推奨) または `memory` | あり | **汎用 RDBMS・分散スケールアウト構成** |
+Tollgate は、キーの永続化・月間クォータ集計・リアルタイム分間レートリミット（RPM）を用途や環境に合わせて柔軟に組み合わせて構成できる。
+
+| バックエンド | キー永続化 | 月間クォータ計数 | 分間レートリミット (RPM) | 分散スケールアウト | 外部コンテナ依存 | 推奨ユースケース |
+|:---|:---:|:---:|:---:|:---:|:---:|:---|
+| **SQLite** (`modernc.org/sqlite`) | ✅ | ✅ (SQL Atomic) | ❌ | ❌ (単一ノード) | **なし (0個)** | **ローカル開発・PoC・単一バイナリ即起動** |
+| **PostgreSQL** (`jackc/pgx/v5`) | ✅ | ✅ (SQL Atomic) | ❌ | ✅ | あり (1個) | **汎用 RDBMS・既存 DB 共有環境** |
+| **DynamoDB** (AWS SDK v2) | ✅ | ✅ (`ADD` Atomic) | ✅ (Fixed Window) | ✅ | あり (AWS / Local) | **AWS サーバーレス・フルマネージド環境** |
+| **Redis / Valkey** (`go-redis/v9`) | ❌ | ❌ | ✅ (Sliding Window) | ✅ | あり (1個) | **分散環境での高精度・低遅延レートリミット** |
+| **In-Memory** | ❌ | ❌ | ✅ (Sliding Window) | ❌ (ノードローカル) | **なし (0個)** | **SQLite 起動時・単一インスタンス環境** |
+
+### 推奨バックエンド構成
+
+| 構成パターン | `DB_BACKEND` | `RATE_LIMIT_BACKEND` | キャッシュ層 | 特徴・メリット |
+|:---|:---|:---|:---:|:---|
+| **① ゼロ依存・スタンドアロン** | `sqlite` | `memory` (自動固定) | なし (ダイレクト) | **外部コンテナ一切不要**。バイナリ 1 本で即時起動。開発・テスト・エッジ用途に最適。 |
+| **② 分散 RDBMS 構成** | `postgres` | `redis` (推奨) | あり (TTL) | 堅牢な PostgreSQL 永続化 + Redis による高精度な分散レートリミット。 |
+| **③ AWS フルマネージド構成** | `dynamodb` | `dynamodb` または `redis` | あり (TTL) | インフラ運用コスト最小化。DynamoDB のみでキー管理・クォータ・RPM を完結。 |
 
 > [!NOTE]
 > `DB_BACKEND=postgres` かつ `RATE_LIMIT_BACKEND=dynamodb` の組み合わせは技術的には動作しますが、クラウド依存が混在するため**非推奨**です。PostgreSQL 採用時は `redis`（または `memory`）をご利用ください。
 
 ---
 
+## 分散 RPM レートリミットの精度と耐障害性
+
+### 1. スライディングウィンドウの実装方式（Redis ZSET + Lua）
+固定ウィンドウ（Fixed Window）方式では、ウィンドウの切り替わり境界（例: 00:59 と 01:00）の前後で一時的に制限値の最大 2 倍のリクエストが通過してしまう「境界バースト問題」が存在する。
+
+Tollgate の Redis バックエンドでは、**Redis Sorted Set (ZSET) と Lua スクリプト**を用いたミリ秒精度のスライディングログアルゴリズムを採用している。
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Client
+    participant TG as Tollgate
+    participant Redis as Redis (Lua Script)
+
+    Client->>TG: API Request
+    TG->>Redis: EVALSHA slidingWindowLuaScript (Key, Window, Now, Limit)
+    Note over Redis: 1. ZREMRANGEBYSCORE (過去60秒前の期限切れ削除)<br/>2. ZCARD (現ウィンドウ内のリクエスト数カウント)<br/>3. limit判定 (超過なら 429 判定)<br/>4. ZADD (現在時刻ミリ秒を記録)<br/>5. PEXPIRE (キーの有効期限更新)
+    Redis-->>TG: [allowed, remaining, reset_in_ms]
+    alt 制限内 (allowed=true)
+        TG->>Client: 200 OK (下流サービスへ転送)
+    else 超過 (allowed=false)
+        TG->>Client: 429 Too Many Requests (Retry-After ヘッダー付与)
+    end
+```
+
+- **完全アトミック実行**: Redis サーバー内で Lua スクリプトとして一連の判定・記録・TTL 更新がアトミックに実行されるため、分散複数ノードからの並行アクセスでも競合（Race Condition）が発生しない。
+- **メモリ効率化**: 古いタイムスタンプは毎回自動削除（`ZREMRANGEBYSCORE`）され、キー自体も 60 秒 + バッファで自動失効（`PEXPIRE`）するためメモリリークが発生しない。
+
+### 2. Redis 障害時のフェイルオープン設計 (Fail-Open)
+レートリミット用 Redis に一時的な接続障害やタイムアウトが発生した場合、Tollgate は **フェイルオープン（Fail-Open: `allowed=true`）** として動作する。
+
+- **可用性の最優先**: レートリミッターの一時的な障害によって、正常な正規ユーザーの全リクエストが 500/503 エラーで巻き添え停止（Fail-Closed）することを防止する。
+- **監視ログ・メトリクス**: フェイルオープン発生時はエラーログを記録し、Prometheus メトリクス経由でアラート検知が可能。
+
+---
+
 ## 類似 OSS との比較
 
 > [!NOTE]
-> 下記はプロジェクト公式情報に基づく概要比較です。各プロジェクトは活発に開発されているため、最新の詳細は各公式ドキュメントで確認してください。
+> 下記は各プロジェクトの公開情報に基づく比較です。各プロジェクトの最新仕様は公式ドキュメントを参照してください。
 
-|  | **Tollgate** | **Kong Gateway (OSS)** | **Tyk Gateway (OSS)** | **Unkey** |
+| 比較項目 | **Tollgate** | **Kong Gateway (OSS)** | **Tyk Gateway (OSS)** | **Unkey** |
 |:---|:---:|:---:|:---:|:---:|
-| **主要な外部依存** | DynamoDB のみ | PostgreSQL（Traditional モード）または DB-less | Redis / Valkey（必須） | MySQL 互換 DB |
-| **エディション分割** | なし（OSS 単一） | OSS 版と Enterprise 版で機能差あり | OSS 版と Enterprise 版で機能差あり（Dashboard 等） | コアは AGPL-3.0 |
-| **リバースプロキシ機能** | あり（単一バイナリで完結） | あり | あり | 主軸は API キー管理・認証（ゲートウェイ機能は付随） |
-| **デプロイの手軽さ** | 単一 Go バイナリ + DynamoDB | プラグイン学習コスト・複数コンポーネント構成 | Redis 必須・エコシステム全体の構築が必要 | Docker 対応、SQL DB 別途必要 |
-| **マルチテナント対応** | ネイティブ（テナント / サービスキー二段構成） | プラグイン設定で実現 | プラグイン設定で実現 | API キー単位での管理 |
+| **ライセンス** | **MPL-2.0** | Apache 2.0 | MPL 2.0 | Apache 2.0 / BSL |
+| **最小外部依存数** | **0 個 (SQLite モード)**<br>1 個 (DynamoDB / Postgres) | 1 個〜 (PostgreSQL / DB-less) | 1 個 (Redis 必須) | 1 個〜 (MySQL 互換 DB) |
+| **単一バイナリ実行** | **✅ 完全対応** (CGO 不要) | ❌ (OpenResty/Lua 環境) | ❌ (Redis 必須) | ❌ (Docker / Node / DB 必須) |
+| **リバースプロキシ機能** | **✅ 内蔵** (動的マルチターゲット) | ✅ 内蔵 | ✅ 内蔵 | △ (検証 API / SDK 主軸) |
+| **マルチテナント認可** | **✅ ネイティブ**<br>(テナントキー / サービスキー二段構成) | △ (プラグイン設定で実現) | △ (プラグイン設定で実現) | △ (キー単位での管理) |
+| **エディション分割** | **なし (OSS 単一ですべての機能を提供)** | あり (Enterprise 版あり) | あり (Enterprise 版あり) | あり (Cloud / Enterprise) |
+| **実装言語** | **Go 1.24+ (ピュア Go)** | Lua / OpenResty / C | Go / C | TypeScript / Next.js / Rust |
 
 ---
 
@@ -358,4 +408,4 @@ go test -race ./...
 
 ## ライセンス
 
-本プロジェクトは [MIT License](LICENSE) の下で公開されています。
+本プロジェクトは [Mozilla Public License 2.0 (MPL-2.0)](LICENSE) の下で公開されています。
