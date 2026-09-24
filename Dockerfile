@@ -18,7 +18,7 @@ RUN go mod tidy && \
     CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o tollgate cmd/server/main.go
 
 # ─── Runtime Stage ───────────────────────────────────────────────────────────
-FROM alpine:3.20
+FROM alpine:3.24
 
 WORKDIR /app
 
