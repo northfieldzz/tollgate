@@ -31,10 +31,14 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	body, _ := io.ReadAll(io.LimitReader(r.Body, 64*1024))
 	defer r.Body.Close()
 
-	// ヘッダーを整形
+	// ヘッダーを整形（機密ヘッダーはマスク）
 	var headers strings.Builder
 	for k, vs := range r.Header {
-		headers.WriteString(fmt.Sprintf("    %s: %s\n", k, strings.Join(vs, ", ")))
+		value := strings.Join(vs, ", ")
+		if isSensitiveHeader(k) {
+			value = "[REDACTED]"
+		}
+		headers.WriteString(fmt.Sprintf("    %s: %s\n", k, value))
 	}
 
 	bodyStr := ""
@@ -53,4 +57,13 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprintf(w, `{"mock":true,"method":"%s","path":"%s","elapsed":"%s"}`,
 		r.Method, r.URL.RequestURI(), time.Since(start))
+}
+
+func isSensitiveHeader(name string) bool {
+	switch strings.ToLower(name) {
+	case "authorization", "proxy-authorization", "cookie", "set-cookie", "x-api-key":
+		return true
+	default:
+		return false
+	}
 }
