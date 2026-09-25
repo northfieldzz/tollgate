@@ -18,4 +18,4 @@
 ## 2026-09-25 - [Admin API Key におけるタイミング攻撃 (CWE-208) の対策]
 **Vulnerability:** `subtle.ConstantTimeCompare` を用いた Admin API Key の比較で、長さが異なる場合に即座にリターンすることで、秘密鍵の長さが漏洩する可能性があった。
 **Learning:** `subtle.ConstantTimeCompare` はスライスの長さが等しい場合にのみ実行時間が一定となる。入力値と期待値の長さが異なる場合、すぐに `0` を返すため、タイミング攻撃によって秘密情報（ここではAPIキー）の長さが特定されるリスクがある。
-**Prevention:** `subtle.ConstantTimeCompare` で文字列を比較する前に、両方の入力に対して `crypto/sha256` などのハッシュ関数を適用し、固定長（SHA-256の場合は32バイト）のハッシュ値同士を比較することで、長さの違いによるタイミングの差異をなくすこと。
+**Prevention:** `subtle.ConstantTimeCompare` で文字列を比較する際、入力値と期待値の長さが異なる場合はダミー比較（`providedBytes = expectedBytes` など）を行うことで、処理時間を期待値の長さに依存させ、長さの違いによるタイミングの差異をなくすこと。これにより、不要なハッシュ関数（CodeQL でパスワードのハッシュに不適切と判定される SHA-256 等）の使用を避けることができる。
