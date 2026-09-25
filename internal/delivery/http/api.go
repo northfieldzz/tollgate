@@ -1,6 +1,7 @@
 package http
 
 import (
+	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/json"
 	"net/http"
@@ -59,7 +60,10 @@ func NewRouter(cfg *config.Config, keyUsecase *usecase.KeyUsecase, verifyUsecase
 				providedKey = strings.TrimPrefix(authHeader, "Bearer ")
 			}
 
-			if subtle.ConstantTimeCompare([]byte(providedKey), []byte(cfg.AdminAPIKey)) != 1 {
+			providedHash := sha256.Sum256([]byte(providedKey))
+			expectedHash := sha256.Sum256([]byte(cfg.AdminAPIKey))
+
+			if subtle.ConstantTimeCompare(providedHash[:], expectedHash[:]) != 1 {
 				_ = huma.WriteErr(api, ctx, http.StatusUnauthorized, "invalid or missing admin api key", nil)
 				return
 			}
