@@ -59,7 +59,16 @@ func NewRouter(cfg *config.Config, keyUsecase *usecase.KeyUsecase, verifyUsecase
 				providedKey = strings.TrimPrefix(authHeader, "Bearer ")
 			}
 
-			if subtle.ConstantTimeCompare([]byte(providedKey), []byte(cfg.AdminAPIKey)) != 1 {
+			providedBytes := []byte(providedKey)
+			expectedBytes := []byte(cfg.AdminAPIKey)
+
+			match := 1
+			if len(providedBytes) != len(expectedBytes) {
+				match = 0
+				providedBytes = expectedBytes // dummy comparison to ensure constant time based on expected length
+			}
+
+			if subtle.ConstantTimeCompare(providedBytes, expectedBytes) != 1 || match == 0 {
 				_ = huma.WriteErr(api, ctx, http.StatusUnauthorized, "invalid or missing admin api key", nil)
 				return
 			}
